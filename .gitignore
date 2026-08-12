@@ -1,0 +1,18 @@
+# ===== 隐私：个人登录凭据，绝不提交 =====
+douyin_cookies.txt
+douyin_cookies_*.txt
+
+# ===== 下载内容 =====
+downloads/
+
+# ===== Python 环境与缓存 =====
+.venv/
+__pycache__/
+*.pyc
+
+# ===== 依赖二进制（README 说明如何获取）=====
+ffmpeg/
+
+# ===== 系统 / 编辑器 =====
+Thumbs.db
+.DS_Store

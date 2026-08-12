@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "抖音 Cookie 导出",
+  "version": "1.0",
+  "description": "一键导出抖音网页版的完整 Cookie（含 HttpOnly），保存为 cookies.txt 供本地下载工具使用。",
+  "permissions": ["cookies", "downloads"],
+  "host_permissions": ["*://*.douyin.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "导出抖音 Cookie"
+  }
+}

@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+抖音图文 / 视频 无水印下载器（需要浏览器扩展导出的 douyin_cookies.txt）
+=================================================================
+流程：短链 → aweme_id → aweme/detail API（带 Cookie）→ 提取图集原图或无水印视频 → 下载。
+
+依赖：requests（已装在 .venv）
+用法：
+  python douyin.py "https://v.douyin.com/<id 隐去>/"        # 单条
+  python douyin.py links.txt                           # 批量（每行一条）
+  python douyin.py "链接" -o 保存目录                   # 指定目录
+Cookie 失效时重新用浏览器扩展导出 douyin_cookies.txt 即可。
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import sys
+import time
+from pathlib import Path
+
+import requests
+
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0")
+URL_RE = re.compile(
+    r"https?://(?:v\.douyin\.com/\S+|(?:www\.)?iesdouyin\.com/share/\S+/\d+"
+    r"|(?:www\.|m\.)?douyin\.com/(?:video|note|slides)/\d+|www\.douyin\.com/\d+)"
+)
+ID_RE = re.compile(r"/(?:video|note|slides)/(\d+)")
+MIME_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+            "image/avif": ".avif", "image/gif": ".gif", "image/heic": ".heic"}
+
+
+def load_cookie_str(path: str = "douyin_cookies.txt") -> str:
+    """读扩展导出的 cookies.txt，转成 Cookie 请求头字符串。"""
+    pairs = []
+    for line in open(path, encoding="utf-8"):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#HttpOnly_"):       # HttpOnly 前缀去掉，按正常行处理
+            line = line[len("#HttpOnly_"):]
+        elif line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+        pairs.append(f"{parts[-2]}={parts[-1]}")
+    return "; ".join(pairs)
+
+
+def make_session(cookie: str) -> requests.Session:
+    s = requests.Session()
+    s.headers.update({"Cookie": cookie, "User-Agent": UA,
+                      "Referer": "https://www.douyin.com/",
+                      "Accept-Language": "zh-CN,zh;q=0.9"})
+    return s
+
+
+def extract_url(text: str) -> str | None:
+    m = URL_RE.search(text)
+    if m:
+        return m.group(0).rstrip("/")
+    m = re.search(r"https?://[^\s<>\"']+", text)   # 兜底：取第一个链接
+    return m.group(0).rstrip("),。；）") if m else None
+
+
+def resolve_aweme_id(url: str, s: requests.Session) -> str | None:
+    url = url.rstrip("/")
+    m = ID_RE.search(url)
+    if m:
+        return m.group(1)
+    try:
+        r = s.get(url, headers={"User-Agent": UA}, allow_redirects=True, timeout=20)
+        m = ID_RE.search(r.url)
+        return m.group(1) if m else None
+    except requests.RequestException as e:
+        print(f"  [!] 短链解析失败: {e}")
+        return None
+
+
+def fetch_detail(aweme_id: str, s: requests.Session) -> dict:
+    url = (f"https://www.douyin.com/aweme/v1/web/aweme/detail/"
+           f"?aweme_id={aweme_id}&device_platform=webapp&aid=6383&channel=channel_pc_web")
+    r = s.get(url, timeout=20)
+    r.raise_for_status()
+    return r.json().get("aweme_detail") or {}
+
+
+def sanitize(name: str, max_len: int = 80) -> str:
+    name = re.sub(r'[\\/:*?"<>|\r\n\t]', "_", name).strip().strip(".")
+    name = re.sub(r"\s+", " ", name)
+    return (name or "douyin")[:max_len]
+
+
+def best_image_url(im: dict) -> str | None:
+    """图集图片用 url_list（无水印，分辨率不变）。download_url_list 带「抖音号」水印，弃用。"""
+    ul = im.get("url_list") or []
+    for u in ul:
+        if ".jpeg" in u.split("?")[0].lower():
+            return u
+    return ul[0] if ul else None
+
+
+def download_bare(url: str, dest: Path, label: str = "",
+                  timeout: tuple = (10, 120)) -> tuple[bool, str]:
+    """图片直链专用下载：只带 UA，不带 Cookie/Referer（CDN 防盗链要求）。"""
+    for attempt in range(3):
+        try:
+            r = requests.get(url, headers={"User-Agent": UA}, stream=True, timeout=timeout)
+            r.raise_for_status()
+            ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
+            with open(dest, "wb") as f:
+                for chunk in r.iter_content(1 << 16):
+                    if chunk:
+                        f.write(chunk)
+            if os.path.getsize(dest) == 0:
+                raise ValueError("空文件（可能被限流）")
+            return True, ctype
+        except Exception as e:
+            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
+            time.sleep(2 * (attempt + 1))
+    return False, ""
+
+
+def download(url: str, dest: Path, s: requests.Session, label: str = "",
+             timeout: tuple = (10, 120)) -> bool:
+    for attempt in range(3):
+        try:
+            with s.get(url, headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"},
+                       stream=True, timeout=timeout) as r:
+                r.raise_for_status()
+                ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
+                with open(dest, "wb") as f:
+                    for chunk in r.iter_content(1 << 16):
+                        if chunk:
+                            f.write(chunk)
+            if os.path.getsize(dest) == 0:
+                raise ValueError("空文件（可能被限流）")
+            return True, ctype
+        except Exception as e:
+            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
+            time.sleep(2 * (attempt + 1))
+    return False, ""
+
+
+def process(link: str, out_dir: Path, s: requests.Session) -> None:
+    url = extract_url(link)
+    if not url:
+        print(f"  [!] 未找到抖音链接: {link[:50]}")
+        return
+    print(f"  [*] 解析: {url}")
+    aid = resolve_aweme_id(url, s)
+    if not aid:
+        print("  [!] 无法解析 aweme_id，链接可能失效或 Cookie 过期")
+        return
+    detail = fetch_detail(aid, s)
+    desc = detail.get("desc", "") or ""
+    author = (detail.get("author") or {}).get("nickname", "") or "未知"
+    base = sanitize(f"{author}_{desc}")
+
+    images = detail.get("images") or []
+    if images:
+        print(f"  [*] 图文作品: {len(images)} 张 by {author}")
+        sub = out_dir / base
+        sub.mkdir(parents=True, exist_ok=True)
+        ok = 0
+        for i, im in enumerate(images, 1):
+            done = False
+            # 实况图/动图（Live Photo）：每张图内嵌一个短视频，静态封面 + 动图 mp4 都下
+            v = im.get("video") or {}
+            v_url = ((v.get("download_addr") or {}).get("url_list") or
+                     (v.get("play_addr") or {}).get("url_list") or [])
+            if v_url:
+                u = best_image_url(im)                      # 静态封面
+                if u:
+                    ok_f, ctype = download_bare(u, sub / f"{i:02d}.tmp", label=f"封面{i}")
+                    if ok_f:
+                        ext = MIME_EXT.get(ctype, ".jpg")
+                        (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
+                        done = True
+                ok_f, _ = download(v_url[0], sub / f"{i:02d}.mp4", s, label=f"动图{i}")
+                if ok_f:
+                    done = True
+            else:
+                u = best_image_url(im)
+                if u:
+                    ok_f, ctype = download_bare(u, sub / f"{i:02d}.tmp", label=f"图片{i}")
+                    if ok_f:
+                        ext = MIME_EXT.get(ctype, ".jpg")
+                        (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
+                        done = True
+            if done:
+                ok += 1
+            time.sleep(0.5)
+        print(f"  [✓] 已保存 {ok}/{len(images)} 张（动图含 mp4） → {sub}")
+    else:
+        video = detail.get("video") or {}
+        play = video.get("play_addr") or {}
+        ul = play.get("url_list") or []
+        if not ul:
+            print("  [!] 既无图集也无视频地址")
+            return
+        u = ul[0].replace("/playwm/", "/play/")   # 去水印
+        dest = out_dir / f"{base}.mp4"
+        print(f"  [*] 视频: {desc[:40] or '(无标题)'} by {author}")
+        ok_f, _ = download(u, dest, s, label="视频", timeout=(10, 600))
+        if ok_f:
+            print(f"  [✓] 已保存 → {dest}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="抖音图文/视频无水印下载器（需 douyin_cookies.txt）")
+    ap.add_argument("input", help="分享链接 / 含链接的文本 / txt 文件（每行一条）")
+    ap.add_argument("-o", "--output", default="downloads", help="保存目录（默认 downloads）")
+    ap.add_argument("-c", "--cookie", default="douyin_cookies.txt", help="Cookie 文件路径")
+    args = ap.parse_args()
+
+    out_dir = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cookie = load_cookie_str(args.cookie)
+    if not cookie:
+        sys.exit("[!] Cookie 为空。请先在浏览器扩展里导出 douyin_cookies.txt（见 CLAUDE.md）")
+    s = make_session(cookie)
+
+    if Path(args.input).exists():
+        links = [l.strip() for l in Path(args.input).read_text(encoding="utf-8").splitlines() if l.strip()]
+    else:
+        links = [args.input]
+    print(f"[*] 共 {len(links)} 条链接")
+    for i, link in enumerate(links, 1):
+        print(f"[{i}/{len(links)}]")
+        process(link, out_dir, s)
+        if i < len(links):
+            time.sleep(2)   # 限速避免触发风控
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n已取消")
+        sys.exit(130)
