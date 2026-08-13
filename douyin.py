@@ -127,7 +127,7 @@ def download_bare(url: str, dest: Path, label: str = "",
 
 
 def download(url: str, dest: Path, s: requests.Session, label: str = "",
-             timeout: tuple = (10, 120)) -> bool:
+             timeout: tuple = (10, 120)) -> tuple[bool, str]:
     for attempt in range(3):
         try:
             with s.get(url, headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"},

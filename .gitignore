@@ -18,6 +18,7 @@ build/
 dist/
 *.spec
 
-# ===== 系统 / 编辑器 =====
+# ===== 系统 / 编辑器 / 运行时日志 =====
 Thumbs.db
 .DS_Store
+error.log

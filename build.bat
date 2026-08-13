@@ -6,14 +6,18 @@ echo ==========================================
 echo   Build douyin-dl.exe (PyInstaller)
 echo ==========================================
 
-if not exist .venv\Scripts\pyinstaller.exe (
-  echo [*] Installing PyInstaller into venv...
-  .venv\Scripts\python.exe -m pip install pyinstaller
-  if errorlevel 1 (
-    echo [FAIL] pip install pyinstaller failed.
-    pause
-    exit /b 1
-  )
+if not exist .venv\Scripts\python.exe (
+  echo [FAIL] venv not found. Run: python -m venv .venv
+  pause
+  exit /b 1
+)
+
+echo [*] Ensuring deps (requests, yt-dlp, pyinstaller)...
+.venv\Scripts\python.exe -m pip install -q requests yt-dlp pyinstaller
+if errorlevel 1 (
+  echo [FAIL] pip install failed.
+  pause
+  exit /b 1
 )
 
 .venv\Scripts\python.exe build.py
