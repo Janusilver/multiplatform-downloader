@@ -14,6 +14,30 @@
 - ✅ **B站下载**：粘贴**裸 BV 号**（如 `BV<id 隐去>`）也能识别，自动补全链接；画质+音轨自动合并成一个 mp4
 - ✅ 失败自动重试、Windows 编码自动处理
 
+## 🚀 免环境版（Windows exe，无需装 Python）
+
+给「不想装 Python」的人：双击 exe 弹个小窗口，粘贴分享链接回车即可下载抖音和 B站视频。已内置 Python 运行时、yt-dlp、ffmpeg，无需任何安装。
+
+**三个东西都要拿到**（一个都不能少）：
+
+| 文件 | 作用 |
+|---|---|
+| `抖音下载器.exe` | 主程序，双击即用 |
+| `extensions\cookie-export\` | 浏览器扩展，**抖音必需**：导出你的登录 Cookie |
+| `douyin_cookies.txt` | 你导出的 Cookie，放到 exe **旁边** |
+
+**首次使用（3 步）**：
+
+1. **装扩展**：Edge 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）→ 开启左下角「开发人员模式」→「加载解压缩的扩展」→ 选 `cookie-export` 文件夹
+2. **导出 Cookie**：打开 [douyin.com](https://www.douyin.com) 并保持登录 → 点扩展图标 → 导出 `douyin_cookies.txt`
+3. **双击 exe**：把 Cookie 文件放到 exe 同目录，双击 exe，粘贴链接点「开始下载」
+
+> 💡 B站**不需要** Cookie，只有抖音需要。不导出 Cookie 也能用 B站功能。
+
+**⚠️ Windows 提示「已保护你的电脑」**：因为没做代码签名，属正常现象，点「更多信息」→「仍要运行」。
+
+> 想自己打包？先装好 venv（见下），双击 `build.bat`，输出到 `dist\抖音下载器.exe`（约 130–160MB，启动解压需等 3–15 秒属正常）。
+
 ## 📦 目录结构
 
 ```
@@ -21,6 +45,9 @@ douyin-dl/
 ├── douyin.py            # 抖音核心下载器（Python）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── bilibili.bat         # B站下载入口（双击运行）
+├── gui.py               # 免环境版 GUI 入口（PyInstaller 打包用）
+├── build.bat            # 打包入口：装依赖 + 调 build.py
+├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
 ├── extensions/
 │   └── cookie-export/   # 浏览器扩展：一键导出抖音 Cookie（跨域必需）
 ├── douyin_cookies.txt   # 【隐私】你的登录 Cookie，由扩展导出后放这里，已被 .gitignore 排除

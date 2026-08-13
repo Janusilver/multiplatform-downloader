@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+抖音 / B站 下载器（tkinter GUI，PyInstaller 打包 exe 用）
+抖音逻辑复用 douyin.py；B站走 yt-dlp（用便携 ffmpeg 合并音视频）。
+文件与 Cookie 均以 exe 所在目录为基准，双击即可用。
+"""
+from __future__ import annotations
+
+import queue
+import re
+import sys
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import messagebox, ttk
+
+import douyin
+
+BILI_RE = re.compile(
+    r"(?:https?://(?:www\.)?bilibili\.com/[^?\s]+"
+    r"|b23\.tv/\S+"
+    r"|BV[0-9A-Za-z]{10}"
+    r"|av\d+)"
+)
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+if getattr(sys, "frozen", False):              # 打包后：exe 所在目录 + PyInstaller 解压目录
+    BASE = Path(sys.executable).resolve().parent
+    FFMPEG_DIR = Path(getattr(sys, "_MEIPASS", str(BASE))) / "ffmpeg"
+else:                                          # 开发模式：脚本所在目录
+    BASE = Path(__file__).resolve().parent
+    FFMPEG_DIR = BASE / "ffmpeg"
+
+COOKIE_PATH = BASE / "douyin_cookies.txt"
+OUT_DIR = BASE / "downloads"
+
+
+def classify(text: str) -> tuple[str | None, str | None]:
+    """识别链接属于抖音还是 B站，返回 (平台, 处理用URL)；无法识别返回 (None, None)。"""
+    m = douyin.URL_RE.search(text)
+    if m:
+        return "douyin", m.group(0).rstrip("/")
+    m = BILI_RE.search(text)
+    if m:
+        raw = m.group(0).rstrip("/")
+        if raw.startswith(("BV", "av")):               # 裸 BV/av 号补全
+            raw = f"https://www.bilibili.com/video/{raw}"
+        elif not raw.startswith("http"):               # 裸 b23.tv 短链补全
+            raw = f"https://{raw}"
+        return "bili", raw
+    return None, None
+
+
+class _QueueWriter:
+    """把 print 输出重定向进 GUI 日志队列（douyin.py 内部大量 print 用）。"""
+
+    def __init__(self, q: queue.Queue):
+        self.q = q
+
+    def write(self, s: str) -> None:
+        if s.strip():
+            self.q.put(("log", s.rstrip("\n")))
+
+    def flush(self) -> None:
+        pass
+
+
+class App:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.q: queue.Queue = queue.Queue()
+        self._last_pct = ""
+        root.title("抖音 / B站 下载器")
+        root.geometry("580x560")
+        root.minsize(480, 420)
+
+        tk.Label(root, text="粘贴抖音 / B站分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
+        box = ttk.Frame(root)
+        box.pack(fill="x", padx=10)
+        self.input = tk.Text(box, height=5, font=("Consolas", 10))
+        sb = ttk.Scrollbar(box, command=self.input.yview)
+        self.input.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self.input.pack(side="left", fill="both", expand=True)
+
+        self.btn = ttk.Button(root, text="开始下载", command=self.start)
+        self.btn.pack(pady=6)
+
+        tk.Label(root, text=f"文件保存到：{OUT_DIR}").pack(anchor="w", padx=10)
+        logbox = ttk.Frame(root)
+        logbox.pack(fill="both", expand=True, padx=10, pady=(4, 10))
+        self.log = tk.Text(logbox, height=18, state="disabled", font=("Consolas", 9))
+        lsb = ttk.Scrollbar(logbox, command=self.log.yview)
+        self.log.configure(yscrollcommand=lsb.set)
+        lsb.pack(side="right", fill="y")
+        self.log.pack(side="left", fill="both", expand=True)
+
+        root.after(100, self._drain)
+        self._welcome()
+
+    # ---------- 日志 ----------
+    def _welcome(self) -> None:
+        self._post("=" * 44)
+        self._post("  抖音 / B站 下载器")
+        self._post("=" * 44)
+        if COOKIE_PATH.exists():
+            cookie = douyin.load_cookie_str(str(COOKIE_PATH))
+            self._post(f"[OK] 已找到抖音 Cookie（{len(cookie)} 字符）")
+        else:
+            self._post("[!] 未找到 douyin_cookies.txt —— 抖音下载不可用")
+            self._post("    先安装浏览器扩展导出 Cookie：")
+            self._post("    1. 发给你的压缩包里含 extensions\\cookie-export 文件夹")
+            self._post("    2. Edge 打开 edge://extensions/ → 左下角「开发人员模式」")
+            self._post("       （Chrome 用 chrome://extensions/）")
+            self._post("    3. 「加载解压缩的扩展」→ 选 cookie-export 文件夹")
+            self._post("    4. 打开 douyin.com 并保持登录，点扩展图标导出")
+            self._post("    5. 把下载的 douyin_cookies.txt 放到 exe 旁边，重启本程序")
+        self._post(f"[*] 文件将保存到：{OUT_DIR}")
+        self._post("")
+
+    def _post(self, msg: str = "") -> None:
+        self.q.put(("log", msg))
+
+    def _drain(self) -> None:
+        try:
+            while True:
+                kind, msg = self.q.get_nowait()
+                if kind == "log":
+                    self.log.configure(state="normal")
+                    self.log.insert("end", msg + "\n")
+                    self.log.see("end")
+                    self.log.configure(state="disabled")
+                elif kind == "done":
+                    self.btn.configure(state="normal")
+        except queue.Empty:
+            pass
+        self.root.after(100, self._drain)
+
+    # ---------- 下载 ----------
+    def start(self) -> None:
+        text = self.input.get("1.0", "end").strip()
+        if not text:
+            self._post("[!] 请先粘贴链接。")
+            return
+        self.btn.configure(state="disabled")
+        threading.Thread(target=self._run, args=(text,), daemon=True).start()
+
+    def _run(self, text: str) -> None:
+        old = sys.stdout
+        sys.stdout = _QueueWriter(self.q)
+        try:
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                self._post(f"\n[*] 处理：{line[:60]}")
+                platform, url = classify(line)
+                if not platform:
+                    self._post("  [!] 无法识别链接")
+                    continue
+                try:
+                    if platform == "douyin":
+                        self._run_douyin(url)
+                    else:
+                        self._run_bili(url)
+                except Exception as e:
+                    self._post(f"  [!] 出错：{e}")
+            self._post("\n[✓] 全部完成")
+        finally:
+            sys.stdout = old
+            self.q.put(("done", ""))
+
+    def _run_douyin(self, url: str) -> None:
+        cookie = douyin.load_cookie_str(str(COOKIE_PATH))
+        if not cookie:
+            self._post("  [!] Cookie 为空，跳过（先导出 douyin_cookies.txt）")
+            return
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        douyin.process(url, OUT_DIR, douyin.make_session(cookie))
+
+    def _run_bili(self, url: str) -> None:
+        import yt_dlp
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        opts = {
+            "no_playlist": True,
+            "format": "bv*+ba/b",
+            "outtmpl": str(OUT_DIR / "%(title)s [%(id)s].%(ext)s"),
+            "quiet": True,
+            "no_warnings": True,
+            "progress_hooks": [self._bili_hook],
+        }
+        if FFMPEG_DIR.joinpath("ffmpeg.exe").exists():
+            opts["ffmpeg_location"] = str(FFMPEG_DIR)
+        else:
+            self._post("  [!] 未找到便携 ffmpeg，B站将无法合并音视频")
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+        self._post("  [✓] B站下载完成")
+
+    def _bili_hook(self, d: dict) -> None:
+        if d.get("status") == "downloading":
+            pct = ANSI_RE.sub("", d.get("_percent_str", "")).strip()
+            if pct != self._last_pct:            # 只显示百分比变化，避免刷屏
+                self._last_pct = pct
+                spd = ANSI_RE.sub("", d.get("_speed_str", "")).strip()
+                eta = ANSI_RE.sub("", d.get("_eta_str", "")).strip()
+                self._post(f"  {pct} {spd} {eta}".rstrip())
+        elif d.get("status") == "finished":
+            self._post(f"  已下载：{Path(d.get('filename', '')).name}")
+
+
+def main() -> None:
+    try:
+        root = tk.Tk()
+        App(root)
+        root.mainloop()
+    except Exception:
+        import traceback
+        with open(BASE / "error.log", "w", encoding="utf-8") as f:
+            traceback.print_exc(file=f)
+        try:
+            messagebox.showerror("出错", f"程序运行出错，详情见 error.log：\n{BASE / 'error.log'}")
+        except Exception:
+            pass
+        raise
+
+
+if __name__ == "__main__":
+    main()

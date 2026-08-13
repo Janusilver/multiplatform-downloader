@@ -13,6 +13,11 @@ __pycache__/
 # ===== 依赖二进制（README 说明如何获取）=====
 ffmpeg/
 
+# ===== PyInstaller 打包产物 =====
+build/
+dist/
+*.spec
+
 # ===== 系统 / 编辑器 =====
 Thumbs.db
 .DS_Store
