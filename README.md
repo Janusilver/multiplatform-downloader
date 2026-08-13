@@ -16,13 +16,13 @@
 
 ## 🚀 免环境版（Windows exe，无需装 Python）
 
-给「不想装 Python」的人：双击 exe 弹个小窗口，粘贴分享链接回车即可下载抖音和 B站视频。已内置 Python 运行时、yt-dlp、ffmpeg，无需任何安装。
+给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\抖音下载器.exe`**，弹个小窗口粘贴分享链接即可下载抖音和 B站视频。exe 已内置 Python 运行时、yt-dlp、ffmpeg，无需任何安装。
 
 **三个东西都要拿到**（一个都不能少）：
 
 | 文件 | 作用 |
 |---|---|
-| `抖音下载器.exe` | 主程序，双击即用 |
+| `release\抖音下载器.exe` | 主程序，双击即用 |
 | `extensions\cookie-export\` | 浏览器扩展，**抖音必需**：导出你的登录 Cookie |
 | `douyin_cookies.txt` | 你导出的 Cookie，放到 exe **旁边** |
 
@@ -48,6 +48,8 @@ douyin-dl/
 ├── gui.py               # 免环境版 GUI 入口（PyInstaller 打包用）
 ├── build.bat            # 打包入口：装依赖 + 调 build.py
 ├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
+├── release/
+│   └── 抖音下载器.exe   # 免环境版成品（clone 后双击即用）
 ├── extensions/
 │   └── cookie-export/   # 浏览器扩展：一键导出抖音 Cookie（跨域必需）
 ├── douyin_cookies.txt   # 【隐私】你的登录 Cookie，由扩展导出后放这里，已被 .gitignore 排除

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """PyInstaller 打包脚本：生成 dist\抖音下载器.exe（抖音 + B站，单文件 GUI）。"""
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +58,11 @@ subprocess.check_call(cmd, cwd=BASE)
 
 exe = BASE / "dist" / "抖音下载器.exe"
 if exe.exists():
-    print(f"[OK] {exe}（{exe.stat().st_size / 1024 / 1024:.1f} MB）")
+    size = exe.stat().st_size / 1024 / 1024
+    release = BASE / "release" / exe.name
+    release.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(exe, release)
+    print(f"[OK] {exe}（{size:.1f} MB）")
+    print(f"[OK] 已复制到 {release}（clone 仓库后双击即用）")
 else:
     print("[FAIL] exe 未生成")
