@@ -8,6 +8,7 @@ kuaishou_cookies_*.txt
 
 # ===== 下载内容 =====
 downloads/
+history.json
 
 # ===== Python 环境与缓存 =====
 .venv/

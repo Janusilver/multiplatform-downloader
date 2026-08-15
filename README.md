@@ -9,6 +9,12 @@
 [![GitHub license](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python)](https://www.python.org/)
 
+## 📸 界面预览
+
+| 主界面 | 下载历史 |
+|---|---|
+| ![主界面](docs/gui-main.png) | ![下载历史](docs/gui-history.png) |
+
 ## ✨ 功能特性
 
 | 平台 | 支持内容 | 需要 Cookie |
@@ -19,6 +25,7 @@
 | B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
 
 - ✅ **智能识别链接**：粘贴整段分享文案也能自动提取链接，自动分流到对应平台
+- ✅ **下载历史**：自动记录每次下载（时间 / 平台 / 链接 / 结果），点「历史」查看，JSON 持久化到 `history.json`
 - ✅ **批量下载**：txt 每行一个链接，内置限速避免触发风控
 - ✅ 失败自动重试、Windows 编码自动处理
 
@@ -66,6 +73,7 @@ douyin-dl/
 ├── build.bat            # 打包入口：装依赖 + 调 build.py
 ├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
 ├── .github/workflows/   # GitHub Actions 自动打包 release
+├── docs/                # 界面截图（README 用）
 ├── LICENSE              # 保留所有权利（个人学习使用）
 ├── .gitignore           # Cookie / 下载内容 / 打包产物不提交
 ├── release/

@@ -8,12 +8,14 @@ B站走 yt-dlp（用便携 ffmpeg 合并音视频）。
 """
 from __future__ import annotations
 
+import json
 import os
 import queue
 import re
 import sys
 import threading
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -38,6 +40,26 @@ COOKIE_PATH = BASE / "douyin_cookies.txt"
 XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
 KS_COOKIE_PATH = BASE / "kuaishou_cookies.txt"
 OUT_DIR = BASE / "downloads"
+HISTORY_PATH = BASE / "history.json"
+HISTORY_MAX = 200
+
+
+def load_history() -> list[dict]:
+    """读取下载历史（JSON，只存链接和时间，不存 Cookie）。"""
+    try:
+        data = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def save_history(history: list[dict]) -> None:
+    try:
+        HISTORY_PATH.write_text(
+            json.dumps(history[-HISTORY_MAX:], ensure_ascii=False, indent=1),
+            encoding="utf-8")
+    except OSError:
+        pass
 
 
 def classify(text: str) -> tuple[str | None, str | None]:
@@ -90,6 +112,7 @@ class App:
         self.q: queue.Queue = queue.Queue()
         self._last_pct = ""
         self.out_dir = OUT_DIR
+        self.history = load_history()
         root.title("抖音 / 小红书 / 快手 / B站 下载器")
         root.geometry("580x600")
         root.minsize(480, 440)
@@ -111,6 +134,8 @@ class App:
         self.dir_label = tk.Label(drow, text=f"文件保存到：{self.out_dir}",
                                   anchor="w", fg="#555")
         self.dir_label.pack(side="left")
+        ttk.Button(drow, text="历史", width=6,
+                   command=self.open_history).pack(side="right", padx=(0, 6))
         ttk.Button(drow, text="选择目录", width=10,
                    command=self.choose_dir).pack(side="right")
         ttk.Button(drow, text="打开目录", width=10,
@@ -169,7 +194,53 @@ class App:
             self._post("    4. 打开对应网站并保持登录，点扩展图标导出")
             self._post("    5. 把下载的 cookies.txt 放到 exe 旁边，重启本程序")
         self._post(f"[*] 文件将保存到：{self.out_dir}")
+        self._post(f"[*] 历史记录：{len(self.history)} 条（点「历史」查看）")
         self._post("")
+
+    # ---------- 下载历史 ----------
+    def _add_history(self, platform: str, url: str, ok: bool) -> None:
+        self.history.append({
+            "time": datetime.now().strftime("%m-%d %H:%M:%S"),
+            "platform": platform,
+            "url": url[:100],
+            "ok": ok,
+        })
+        if len(self.history) > HISTORY_MAX:
+            self.history = self.history[-HISTORY_MAX:]
+        save_history(self.history)
+
+    def open_history(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("下载历史")
+        win.geometry("580x380")
+        frame = ttk.Frame(win)
+        frame.pack(fill="both", expand=True, padx=8, pady=8)
+        cols = ("time", "platform", "url", "ok")
+        tree = ttk.Treeview(frame, columns=cols, show="headings")
+        tree.heading("time", text="时间")
+        tree.heading("platform", text="平台")
+        tree.heading("url", text="链接")
+        tree.heading("ok", text="结果")
+        tree.column("time", width=110, anchor="w")
+        tree.column("platform", width=64, anchor="center")
+        tree.column("url", width=330, anchor="w")
+        tree.column("ok", width=44, anchor="center")
+        sb = ttk.Scrollbar(frame, command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        tree.pack(side="left", fill="both", expand=True)
+        for item in reversed(self.history):
+            tree.insert("", "end", values=(
+                item.get("time", ""), item.get("platform", ""),
+                item.get("url", ""), "✓" if item.get("ok") else "✗"))
+
+        def clear() -> None:
+            self.history = []
+            save_history(self.history)
+            for i in tree.get_children():
+                tree.delete(i)
+
+        ttk.Button(win, text="清空历史", command=clear).pack(pady=(0, 8))
 
     def _post(self, msg: str = "") -> None:
         self.q.put(("log", msg))
@@ -211,6 +282,7 @@ class App:
                 if not platform:
                     self._post("  [!] 无法识别链接")
                     continue
+                ok = True
                 try:
                     if platform == "douyin":
                         self._run_douyin(url)
@@ -222,6 +294,8 @@ class App:
                         self._run_bili(url)
                 except Exception as e:
                     self._post(f"  [!] 出错：{e}")
+                    ok = False
+                self._add_history(platform, url, ok)
             self._post("\n[✓] 全部完成")
         finally:
             sys.stdout = old
