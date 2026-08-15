@@ -15,11 +15,17 @@ import re
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import douyin
+
+APP_VERSION = "1.1.1"
+UPDATE_URL = "https://api.github.com/repos/Janusilver/douyin-dl/releases/latest"
+PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
+                  "https": "http://127.0.0.1:7890"}
 
 BILI_RE = re.compile(
     r"(?:https?://(?:www\.)?bilibili\.com/[^?\s]+"
@@ -60,6 +66,34 @@ def save_history(history: list[dict]) -> None:
             encoding="utf-8")
     except OSError:
         pass
+
+
+def latest_release() -> tuple[str, str] | None:
+    """查 GitHub 最新 Release，返回 (版本号, 下载页URL)；网络失败返回 None。"""
+    try:
+        from curl_cffi import requests as cr
+    except ImportError:
+        return None
+    for proxies in (None, PROXY_FALLBACK):
+        try:
+            r = cr.get(UPDATE_URL, impersonate="chrome", timeout=8,
+                       headers={"User-Agent": "Mozilla/5.0",
+                                "Accept": "application/vnd.github+json"},
+                       proxies=proxies)
+            j = r.json()
+            tag = str(j.get("tag_name") or "").lstrip("v")
+            if tag and j.get("html_url"):
+                return tag, j["html_url"]
+        except Exception:
+            continue
+    return None
+
+
+def version_gt(a: str, b: str) -> bool:
+    """a > b（按数字段比较，如 1.10.0 > 1.9.2）。"""
+    pa = [int(x) for x in re.split(r"[^\d]+", a) if x.isdigit()]
+    pb = [int(x) for x in re.split(r"[^\d]+", b) if x.isdigit()]
+    return pa > pb
 
 
 def classify(text: str) -> tuple[str | None, str | None]:
@@ -151,6 +185,7 @@ class App:
 
         root.after(100, self._drain)
         self._welcome()
+        threading.Thread(target=self._check_update, daemon=True).start()
 
     # ---------- 保存目录 ----------
     def choose_dir(self) -> None:
@@ -195,7 +230,18 @@ class App:
             self._post("    5. 把下载的 cookies.txt 放到 exe 旁边，重启本程序")
         self._post(f"[*] 文件将保存到：{self.out_dir}")
         self._post(f"[*] 历史记录：{len(self.history)} 条（点「历史」查看）")
+        self._post(f"[*] 当前版本 v{APP_VERSION}，启动时自动检查更新")
         self._post("")
+
+    # ---------- 更新检查 ----------
+    def _check_update(self) -> None:
+        """后台查最新 Release；有新版本时把提示放进队列，由主线程弹窗。"""
+        try:
+            found = latest_release()
+            if found and version_gt(found[0], APP_VERSION):
+                self.q.put(("update", (found[0], found[1])))
+        except Exception:
+            pass
 
     # ---------- 下载历史 ----------
     def _add_history(self, platform: str, url: str, ok: bool) -> None:
@@ -256,6 +302,13 @@ class App:
                     self.log.configure(state="disabled")
                 elif kind == "done":
                     self.btn.configure(state="normal")
+                elif kind == "update":
+                    tag, url = msg
+                    if messagebox.askyesno(
+                            "发现新版本",
+                            f"发现新版本 v{tag}（当前 v{APP_VERSION}）\n\n"
+                            "是否前往 GitHub 下载？"):
+                        webbrowser.open(url)
         except queue.Empty:
             pass
         self.root.after(100, self._drain)
