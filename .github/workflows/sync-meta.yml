@@ -1,4 +1,6 @@
-# 同步仓库元信息（描述 / Topics / 空 Release 正文）——push 到 main 自动执行
+# 同步空 Release 正文——push 到 main 自动执行
+# 注：仓库描述/Topics 属于 administration 权限，GITHUB_TOKEN 无权修改，
+#     需手动（网页编辑）或 fine-grained PAT（Administration: write）。
 name: sync-meta
 
 on:
@@ -8,13 +10,12 @@ on:
 
 permissions:
   contents: write
-  administration: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Sync repo metadata and release notes
+      - name: Fill empty release notes
         shell: python
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +41,6 @@ jobs:
               except urllib.error.HTTPError as e:
                   return e.code, json.loads(e.read() or b"{}")
 
-          DESC = ("多平台无水印下载器：抖音 / 小红书 / 快手 / B站，图文原图、"
-                  "实况图动图、无水印视频一键下载（Python + tkinter GUI）")
-          TOPICS = ["douyin", "xiaohongshu", "kuaishou", "bilibili",
-                    "python", "downloader", "crawler"]
           BODY = ("## 更新内容\n"
                   "- 四平台一体：抖音 / 小红书 / 快手 / B站 无水印下载\n"
                   "- 小红书：图文原图、实况图动图、视频（网页流可能带小红书号水印）\n"
@@ -53,16 +50,11 @@ jobs:
                   "## 使用\n"
                   "安装 Cookie 导出扩展 → 导出各平台 Cookie 放 exe 旁 → 双击运行。详见 README。")
 
-          code, _ = req("PATCH", f"{api}/repos/{repo}",
-                        {"description": DESC, "topics": TOPICS})
-          print(f"PATCH repo metadata -> {code}")
-
           code, rels = req("GET", f"{api}/repos/{repo}/releases?per_page=10")
           for rel in rels if isinstance(rels, list) else []:
-              if rel.get("tag_name") in ("v1.0.0", "v1.1.0"):
-                  if not (rel.get("body") or "").strip():
-                      c3, _ = req("PATCH", f"{api}/repos/{repo}/releases/{rel['id']}",
-                                  {"body": BODY})
-                      print(f"PATCH release {rel['tag_name']} -> {c3}")
-                  else:
-                      print(f"release {rel['tag_name']} 已有正文，跳过")
+              if not (rel.get("body") or "").strip():
+                  c3, _ = req("PATCH", f"{api}/repos/{repo}/releases/{rel['id']}",
+                              {"body": BODY})
+                  print(f"PATCH release {rel['tag_name']} -> {c3}")
+              else:
+                  print(f"release {rel['tag_name']} 已有正文，跳过")
