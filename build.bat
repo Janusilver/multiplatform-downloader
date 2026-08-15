@@ -12,8 +12,8 @@ if not exist .venv\Scripts\python.exe (
   exit /b 1
 )
 
-echo [*] Ensuring deps (requests, yt-dlp, pyinstaller)...
-.venv\Scripts\python.exe -m pip install -q requests yt-dlp pyinstaller
+echo [*] Ensuring deps (requests, yt-dlp, curl_cffi, pyinstaller)...
+.venv\Scripts\python.exe -m pip install -q requests yt-dlp curl_cffi pyinstaller
 if errorlevel 1 (
   echo [FAIL] pip install failed.
   pause
@@ -28,5 +28,5 @@ if errorlevel 1 (
 )
 
 echo.
-echo [OK] Send dist\抖音下载器.exe + extensions\cookie-export + README to your users.
+echo [OK] Send dist\多平台下载器.exe + extensions\cookie-export + README to your users.
 pause

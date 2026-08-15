@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-抖音 / B站 下载器（tkinter GUI，PyInstaller 打包 exe 用）
-抖音逻辑复用 douyin.py；B站走 yt-dlp（用便携 ffmpeg 合并音视频）。
+抖音 / 小红书 / 快手 / B站 下载器（tkinter GUI，PyInstaller 打包 exe 用）
+抖音复用 douyin.py；小红书/快手分别复用 xhs.py / kuaishou.py；
+B站走 yt-dlp（用便携 ffmpeg 合并音视频）。
 文件与 Cookie 均以 exe 所在目录为基准，双击即可用。
 """
 from __future__ import annotations
 
+import os
 import queue
 import re
 import sys
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
@@ -33,11 +35,13 @@ else:                                          # 开发模式：脚本所在目�
     FFMPEG_DIR = BASE / "ffmpeg"
 
 COOKIE_PATH = BASE / "douyin_cookies.txt"
+XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
+KS_COOKIE_PATH = BASE / "kuaishou_cookies.txt"
 OUT_DIR = BASE / "downloads"
 
 
 def classify(text: str) -> tuple[str | None, str | None]:
-    """识别链接属于抖音还是 B站，返回 (平台, 处理用URL)；无法识别返回 (None, None)。"""
+    """识别链接属于哪个平台，返回 (平台, 处理用URL)；无法识别返回 (None, None)。"""
     m = douyin.URL_RE.search(text)
     if m:
         return "douyin", m.group(0).rstrip("/")
@@ -49,6 +53,20 @@ def classify(text: str) -> tuple[str | None, str | None]:
         elif not raw.startswith("http"):               # 裸 b23.tv 短链补全
             raw = f"https://{raw}"
         return "bili", raw
+    try:
+        import xhs
+        m = xhs.URL_RE.search(text)
+        if m:
+            return "xhs", m.group(0).rstrip("/")
+    except ImportError:
+        pass
+    try:
+        import kuaishou
+        m = kuaishou.URL_RE.search(text)
+        if m:
+            return "kuaishou", m.group(0).rstrip("/")
+    except ImportError:
+        pass
     return None, None
 
 
@@ -71,11 +89,12 @@ class App:
         self.root = root
         self.q: queue.Queue = queue.Queue()
         self._last_pct = ""
-        root.title("抖音 / B站 下载器")
-        root.geometry("580x560")
-        root.minsize(480, 420)
+        self.out_dir = OUT_DIR
+        root.title("抖音 / 小红书 / 快手 / B站 下载器")
+        root.geometry("580x600")
+        root.minsize(480, 440)
 
-        tk.Label(root, text="粘贴抖音 / B站分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
+        tk.Label(root, text="粘贴抖音 / 小红书 / 快手 / B站分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
         box = ttk.Frame(root)
         box.pack(fill="x", padx=10)
         self.input = tk.Text(box, height=5, font=("Consolas", 10))
@@ -87,7 +106,16 @@ class App:
         self.btn = ttk.Button(root, text="开始下载", command=self.start)
         self.btn.pack(pady=6)
 
-        tk.Label(root, text=f"文件保存到：{OUT_DIR}").pack(anchor="w", padx=10)
+        drow = ttk.Frame(root)
+        drow.pack(fill="x", padx=10)
+        self.dir_label = tk.Label(drow, text=f"文件保存到：{self.out_dir}",
+                                  anchor="w", fg="#555")
+        self.dir_label.pack(side="left")
+        ttk.Button(drow, text="选择目录", width=10,
+                   command=self.choose_dir).pack(side="right")
+        ttk.Button(drow, text="打开目录", width=10,
+                   command=self.open_dir).pack(side="right", padx=(0, 6))
+
         logbox = ttk.Frame(root)
         logbox.pack(fill="both", expand=True, padx=10, pady=(4, 10))
         self.log = tk.Text(logbox, height=18, state="disabled", font=("Consolas", 9))
@@ -99,24 +127,48 @@ class App:
         root.after(100, self._drain)
         self._welcome()
 
+    # ---------- 保存目录 ----------
+    def choose_dir(self) -> None:
+        d = filedialog.askdirectory(initialdir=str(self.out_dir),
+                                    title="选择保存目录")
+        if d:
+            self.out_dir = Path(d)
+            self.dir_label.configure(text=f"文件保存到：{self.out_dir}")
+
+    def open_dir(self) -> None:
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(self.out_dir))          # Windows
+        except AttributeError:
+            self._post(f"[*] 保存目录：{self.out_dir}")
+
     # ---------- 日志 ----------
     def _welcome(self) -> None:
         self._post("=" * 44)
-        self._post("  抖音 / B站 下载器")
+        self._post("  抖音 / 小红书 / 快手 / B站 下载器")
         self._post("=" * 44)
         if COOKIE_PATH.exists():
             cookie = douyin.load_cookie_str(str(COOKIE_PATH))
             self._post(f"[OK] 已找到抖音 Cookie（{len(cookie)} 字符）")
         else:
             self._post("[!] 未找到 douyin_cookies.txt —— 抖音下载不可用")
-            self._post("    先安装浏览器扩展导出 Cookie：")
-            self._post("    1. 发给你的压缩包里含 extensions\\cookie-export 文件夹")
+        if XHS_COOKIE_PATH.exists():
+            self._post(f"[OK] 已找到小红书 Cookie（可选，登录后更稳）")
+        else:
+            self._post("[!] 未找到 xhs_cookies.txt —— 小红书匿名可用，可能被风控")
+        if KS_COOKIE_PATH.exists():
+            self._post(f"[OK] 已找到快手 Cookie（可选，登录后更稳）")
+        else:
+            self._post("[!] 未找到 kuaishou_cookies.txt —— 快手匿名可用")
+        if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists() and KS_COOKIE_PATH.exists()):
+            self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
+            self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
             self._post("    2. Edge 打开 edge://extensions/ → 左下角「开发人员模式」")
             self._post("       （Chrome 用 chrome://extensions/）")
             self._post("    3. 「加载解压缩的扩展」→ 选 cookie-export 文件夹")
-            self._post("    4. 打开 douyin.com 并保持登录，点扩展图标导出")
-            self._post("    5. 把下载的 douyin_cookies.txt 放到 exe 旁边，重启本程序")
-        self._post(f"[*] 文件将保存到：{OUT_DIR}")
+            self._post("    4. 打开对应网站并保持登录，点扩展图标导出")
+            self._post("    5. 把下载的 cookies.txt 放到 exe 旁边，重启本程序")
+        self._post(f"[*] 文件将保存到：{self.out_dir}")
         self._post("")
 
     def _post(self, msg: str = "") -> None:
@@ -162,6 +214,10 @@ class App:
                 try:
                     if platform == "douyin":
                         self._run_douyin(url)
+                    elif platform == "xhs":
+                        self._run_xhs(url)
+                    elif platform == "kuaishou":
+                        self._run_kuaishou(url)
                     else:
                         self._run_bili(url)
                 except Exception as e:
@@ -176,16 +232,38 @@ class App:
         if not cookie:
             self._post("  [!] Cookie 为空，跳过（先导出 douyin_cookies.txt）")
             return
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
-        douyin.process(url, OUT_DIR, douyin.make_session(cookie))
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        douyin.process(url, self.out_dir, douyin.make_session(cookie))
+
+    def _run_xhs(self, url: str) -> None:
+        try:
+            import xhs
+        except ImportError as e:
+            self._post(f"  [!] 小红书依赖缺失（curl_cffi）：{e}")
+            return
+        cookie = (douyin.load_cookie_str(str(XHS_COOKIE_PATH))
+                  if XHS_COOKIE_PATH.exists() else "")
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        xhs.process(url, self.out_dir, cookie)
+
+    def _run_kuaishou(self, url: str) -> None:
+        try:
+            import kuaishou
+        except ImportError as e:
+            self._post(f"  [!] 快手依赖缺失（curl_cffi）：{e}")
+            return
+        cookie = (douyin.load_cookie_str(str(KS_COOKIE_PATH))
+                  if KS_COOKIE_PATH.exists() else "")
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        kuaishou.process(url, self.out_dir, cookie)
 
     def _run_bili(self, url: str) -> None:
         import yt_dlp
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
         opts = {
             "no_playlist": True,
             "format": "bv*+ba/b",
-            "outtmpl": str(OUT_DIR / "%(title)s [%(id)s].%(ext)s"),
+            "outtmpl": str(self.out_dir / "%(title)s [%(id)s].%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [self._bili_hook],

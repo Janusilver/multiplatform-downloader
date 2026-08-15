@@ -1,6 +1,10 @@
 # ===== 隐私：个人登录凭据，绝不提交 =====
 douyin_cookies.txt
 douyin_cookies_*.txt
+xhs_cookies.txt
+xhs_cookies_*.txt
+kuaishou_cookies.txt
+kuaishou_cookies_*.txt
 
 # ===== 下载内容 =====
 downloads/

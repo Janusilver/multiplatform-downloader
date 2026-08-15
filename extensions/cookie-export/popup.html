@@ -3,14 +3,20 @@
 <head>
 <meta charset="utf-8">
 <style>
-  body { width: 280px; font-family: "Microsoft YaHei", Arial, sans-serif; padding: 14px; }
-  button { width: 100%; padding: 10px; font-size: 14px; cursor: pointer; background: #fe2c55; color: #fff; border: none; border-radius: 6px; }
-  #status { margin-top: 12px; font-size: 12px; color: #666; word-break: break-all; }
+  body { width: 300px; font-family: "Microsoft YaHei", Arial, sans-serif; padding: 14px; }
+  .tip { font-size: 13px; margin: 0 0 10px; color: #333; }
+  button { width: 100%; padding: 10px; font-size: 14px; cursor: pointer; color: #fff; border: none; border-radius: 6px; margin-bottom: 8px; }
+  #btn-dy  { background: #fe2c55; }
+  #btn-xhs { background: #ff2442; }
+  #btn-ks  { background: #ff5d1f; }
+  #status { margin-top: 4px; font-size: 12px; color: #666; word-break: break-all; white-space: pre-line; }
 </style>
 </head>
 <body>
-  <p style="font-size:13px;margin-top:0;">确保已登录 www.douyin.com，然后点下面按钮：</p>
-  <button id="btn">导出抖音 Cookie</button>
+  <p class="tip">先在浏览器打开对应网站并登录，再点按钮导出（导出的是「你自己」的 Cookie，仅本地使用）：</p>
+  <button id="btn-dy">导出抖音 Cookie</button>
+  <button id="btn-xhs">导出小红书 Cookie</button>
+  <button id="btn-ks">导出快手 Cookie</button>
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>

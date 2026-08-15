@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+快手视频 / 图集下载器（Cookie 可选；建议带 kuaishou_cookies.txt 更稳）
+=================================================================
+流程：链接（v.kuaishou.com 短链 / short-video / f/ 短链）
+→ photoId → PC 作品页（curl_cffi 伪装 Chrome）
+→ 解析 window.__APOLLO_STATE__ → 提取无水印视频（manifest）/ 图集 → 下载。
+
+依赖：requests、curl_cffi（.venv 已装）
+用法：
+  python kuaishou.py "https://v.kuaishou.com/xxxx/"     # 单条
+  python kuaishou.py links.txt                          # 批量（每行一条）
+  python kuaishou.py "链接" -o 保存目录                 # 指定目录
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import time
+from pathlib import Path
+
+import requests
+from curl_cffi import requests as cr
+
+import douyin  # 复用 UA / load_cookie_str / sanitize
+
+UA = douyin.UA
+URL_RE = re.compile(
+    r"https?://(?:v\.kuaishou\.com/\S+"
+    r"|(?:www\.)?kuaishou\.com/(?:short-video/[0-9A-Za-z]+|f/\S+)"
+    r"|v\.m\.chenzhongtech\.com/fw/photo/[0-9A-Za-z]+\S*)"
+)
+ID_RE = re.compile(r"(?:short-video|fw/photo)/([0-9A-Za-z]+)")
+PHOTO_ID_QRY = re.compile(r"[?&]photoId=([0-9A-Za-z]+)")
+IIFE_TAIL = (";(function(){var s;(s=document.currentScript||document.scripts["
+             "document.scripts.length-1]).parentNode.removeChild(s);}());")
+
+
+def extract_url(text: str) -> str | None:
+    m = URL_RE.search(text)
+    if m:
+        return m.group(0).rstrip("/")
+    m = re.search(r"https?://[^\s<>\"']+", text)   # 兜底：取第一个链接
+    return m.group(0).rstrip("),。；）") if m else None
+
+
+def get(url: str, cookie: str, timeout: int = 25) -> cr.Response:
+    h = {"User-Agent": UA, "Referer": "https://www.kuaishou.com/",
+         "Accept-Language": "zh-CN,zh;q=0.9"}
+    if cookie:
+        h["Cookie"] = cookie
+    return cr.get(url, headers=h, impersonate="chrome", timeout=timeout)
+
+
+def resolve_photo_id(url: str, cookie: str) -> str | None:
+    m = ID_RE.search(url)
+    if m:
+        return m.group(1)
+    m = PHOTO_ID_QRY.search(url)
+    if m:
+        return m.group(1)
+    try:
+        r = get(url, cookie)
+        final = str(r.url)
+        m = ID_RE.search(final) or PHOTO_ID_QRY.search(final)
+        if m:
+            return m.group(1)
+        print(f"  [!] 跳转结果无法识别: {final[:100]}")
+    except Exception as e:
+        print(f"  [!] 短链跳转失败: {e}")
+    return None
+
+
+def fetch_photo(photo_id: str, cookie: str) -> dict:
+    url = f"https://www.kuaishou.com/short-video/{photo_id}"
+    r = get(url, cookie)
+    text = r.text
+    m = re.search(r"window\.__APOLLO_STATE__\s*=\s*", text)
+    if not m:
+        print("  [!] 页面无 __APOLLO_STATE__（可能被风控，试试带 Cookie）")
+        return {}
+    raw = text[m.end():]
+    raw = raw[:raw.find("</script>")]
+    raw = raw.replace(IIFE_TAIL, "").rstrip().rstrip(";")
+    try:
+        st = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"  [!] __APOLLO_STATE__ 解析失败: {e}")
+        return {}
+    dc = st.get("defaultClient") or {}
+    photo = dc.get(f"VisionVideoDetailPhoto:{photo_id}") or {}
+    if photo:
+        # 作者昵称：优先取状态里的 Author 对象
+        for k, v in dc.items():
+            if k.startswith("VisionVideoDetailAuthor:"):
+                photo.setdefault("_authorName", (v or {}).get("name"))
+                break
+    return photo
+
+
+def video_urls(photo: dict) -> list[str]:
+    """manifest 各档清晰度 URL（无水印），从低到高返回，取最后一个最高清。"""
+    urls = []
+    for aset in (photo.get("manifest") or {}).get("adaptationSet") or []:
+        for rep in aset.get("representation") or []:
+            for k in ("url", "backupUrl"):
+                if rep.get(k):
+                    urls.append(rep[k])
+                    break
+    return urls
+
+
+def atlas_urls(photo: dict) -> list[str]:
+    """图集：ext_params.atlas（JSON 字符串或列表）里的图片直链。"""
+    ext = photo.get("ext_params") or {}
+    atlas = ext.get("atlas") or []
+    if isinstance(atlas, str):
+        try:
+            atlas = json.loads(atlas)
+        except json.JSONDecodeError:
+            return []
+    out = []
+    for it in atlas:
+        if not isinstance(it, dict):
+            continue
+        for cdn in it.get("cdnUrls") or [it]:
+            if isinstance(cdn, dict) and cdn.get("url"):
+                out.append(cdn["url"])
+    return out
+
+
+def download(url: str, dest: Path, label: str = "",
+             timeout: tuple = (10, 600)) -> bool:
+    """直链下载：UA + Referer（快手 CDN 校验），失败重试 3 次。"""
+    for attempt in range(3):
+        try:
+            r = requests.get(url, headers={"User-Agent": UA,
+                                           "Referer": "https://www.kuaishou.com/"},
+                             stream=True, timeout=timeout)
+            r.raise_for_status()
+            with open(dest, "wb") as f:
+                for chunk in r.iter_content(1 << 16):
+                    if chunk:
+                        f.write(chunk)
+            if os.path.getsize(dest) == 0:
+                raise ValueError("空文件（可能被限流）")
+            return True
+        except Exception as e:
+            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
+            time.sleep(2 * (attempt + 1))
+    return False
+
+
+def process(link: str, out_dir: Path, cookie: str) -> None:
+    url = extract_url(link)
+    if not url:
+        print(f"  [!] 未找到快手链接: {link[:50]}")
+        return
+    print(f"  [*] 解析: {url}")
+    pid = resolve_photo_id(url, cookie)
+    if not pid:
+        print("  [!] 无法解析 photoId")
+        return
+    photo = fetch_photo(pid, cookie)
+    if not photo:
+        print("  [!] 作品数据获取失败（可能被风控/作品已删除）")
+        return
+
+    caption = photo.get("caption") or ""
+    author = photo.get("_authorName") or photo.get("userName") or "未知"
+    base = douyin.sanitize(f"{author}_{caption}")
+    ptype = photo.get("photoType") or "VIDEO"
+
+    atlas = atlas_urls(photo)
+    if atlas and "ATLAS" in str(ptype).upper():
+        sub = out_dir / base
+        sub.mkdir(parents=True, exist_ok=True)
+        ok = 0
+        for i, u in enumerate(atlas, 1):
+            if download(u, sub / f"{i:02d}.tmp", label=f"图片{i}"):
+                (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}.jpg")
+                ok += 1
+            time.sleep(0.5)
+        print(f"  [✓] 已保存 {ok}/{len(atlas)} 张 → {sub}")
+        return
+
+    vids = video_urls(photo)
+    if not vids:
+        vids = [photo["photoUrl"]] if photo.get("photoUrl") else []
+    if not vids:
+        print("  [!] 既无图集也无视频地址")
+        return
+    dest = out_dir / f"{base}.mp4"
+    print(f"  [*] 视频: {caption[:40] or '(无标题)'} by {author}")
+    if download(vids[-1], dest, label="视频"):
+        print(f"  [✓] 已保存 → {dest}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="快手无水印下载器（Cookie 可选）")
+    ap.add_argument("input", help="分享链接 / 含链接的文本 / txt 文件（每行一条）")
+    ap.add_argument("-o", "--output", default="downloads", help="保存目录（默认 downloads）")
+    ap.add_argument("-c", "--cookie", default="kuaishou_cookies.txt", help="Cookie 文件路径")
+    args = ap.parse_args()
+
+    out_dir = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cookie_path = Path(args.cookie)
+    cookie = douyin.load_cookie_str(str(cookie_path)) if cookie_path.exists() else ""
+    if not cookie:
+        print("[!] 未找到 kuaishou_cookies.txt —— 匿名可用，登录后更稳")
+
+    if Path(args.input).exists():
+        links = [l.strip() for l in Path(args.input).read_text(encoding="utf-8").splitlines() if l.strip()]
+    else:
+        links = [args.input]
+    print(f"[*] 共 {len(links)} 条链接")
+    for i, link in enumerate(links, 1):
+        print(f"[{i}/{len(links)}]")
+        process(link, out_dir, cookie)
+        if i < len(links):
+            time.sleep(2)   # 限速避免触发风控
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n已取消")
+        sys.exit(130)

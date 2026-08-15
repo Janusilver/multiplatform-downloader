@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PyInstaller 打包脚本：生成 dist\抖音下载器.exe（抖音 + B站，单文件 GUI）。"""
+"""PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/快手/B站，单文件 GUI）。"""
 import os
 import shutil
 import subprocess
@@ -48,15 +48,16 @@ else:
 cmd = [
     sys.executable, "-m", "PyInstaller",
     "--noconfirm", "--clean", "--onefile", "--windowed",
-    "--name", "抖音下载器",
+    "--name", "多平台下载器",
     "--collect-all", "yt_dlp",
+    "--collect-all", "curl_cffi",
     "--add-data", f"ffmpeg{os.sep}ffmpeg.exe;ffmpeg",
     "gui.py",
 ]
 print("[*] 打包中（需几分钟）...")
 subprocess.check_call(cmd, cwd=BASE)
 
-exe = BASE / "dist" / "抖音下载器.exe"
+exe = BASE / "dist" / "多平台下载器.exe"
 if exe.exists():
     size = exe.stat().st_size / 1024 / 1024
     release = BASE / "release" / exe.name
