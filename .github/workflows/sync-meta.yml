@@ -1,0 +1,68 @@
+# 同步仓库元信息（描述 / Topics / 空 Release 正文）——push 到 main 自动执行
+name: sync-meta
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  administration: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync repo metadata and release notes
+        shell: python
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          import json
+          import os
+          import urllib.request
+          import urllib.error
+
+          token = os.environ["GH_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          api = "https://api.github.com"
+
+          def req(method, url, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              r = urllib.request.Request(url, data=data, method=method)
+              r.add_header("Authorization", f"Bearer {token}")
+              r.add_header("Accept", "application/vnd.github+json")
+              r.add_header("User-Agent", "sync-meta")
+              try:
+                  with urllib.request.urlopen(r, timeout=60) as resp:
+                      return resp.status, json.loads(resp.read() or b"{}")
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b"{}")
+
+          DESC = ("多平台无水印下载器：抖音 / 小红书 / 快手 / B站，图文原图、"
+                  "实况图动图、无水印视频一键下载（Python + tkinter GUI）")
+          TOPICS = ["douyin", "xiaohongshu", "kuaishou", "bilibili",
+                    "python", "downloader", "crawler"]
+          BODY = ("## 更新内容\n"
+                  "- 四平台一体：抖音 / 小红书 / 快手 / B站 无水印下载\n"
+                  "- 小红书：图文原图、实况图动图、视频（网页流可能带小红书号水印）\n"
+                  "- 快手：自动选最高画质档（H264/H265 均无水印）\n"
+                  "- GUI：下载历史持久化、保存目录选择、链接自动分流\n"
+                  "- GitHub Actions 自动打包，push v* 标签即出 Release\n\n"
+                  "## 使用\n"
+                  "安装 Cookie 导出扩展 → 导出各平台 Cookie 放 exe 旁 → 双击运行。详见 README。")
+
+          code, _ = req("PATCH", f"{api}/repos/{repo}",
+                        {"description": DESC, "topics": TOPICS})
+          print(f"PATCH repo metadata -> {code}")
+
+          code, rels = req("GET", f"{api}/repos/{repo}/releases?per_page=10")
+          for rel in rels if isinstance(rels, list) else []:
+              if rel.get("tag_name") in ("v1.0.0", "v1.1.0"):
+                  if not (rel.get("body") or "").strip():
+                      c3, _ = req("PATCH", f"{api}/repos/{repo}/releases/{rel['id']}",
+                                  {"body": BODY})
+                      print(f"PATCH release {rel['tag_name']} -> {c3}")
+                  else:
+                      print(f"release {rel['tag_name']} 已有正文，跳过")
