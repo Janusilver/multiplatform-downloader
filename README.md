@@ -1,6 +1,6 @@
 # douyin-dl · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**，以及 **B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）。四个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印），以及 **B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）。四个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -72,7 +72,7 @@ douyin-dl/
 ├── gui.py               # 四平台一体 GUI 入口（PyInstaller 打包用）
 ├── build.bat            # 打包入口：装依赖 + 调 build.py
 ├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
-├── .github/workflows/   # GitHub Actions 自动打包 release
+├── .github/workflows/   # build.yml 自动打包 release；sync-meta.yml 同步 Release 正文
 ├── docs/                # 界面截图（README 用）
 ├── LICENSE              # 保留所有权利（个人学习使用）
 ├── .gitignore           # Cookie / 下载内容 / 打包产物不提交
@@ -169,7 +169,7 @@ pip install requests yt-dlp curl_cffi
 | 问题 | 解决 |
 |---|---|
 | 抖音下载提示 Cookie 失效 / 解析不到内容 | 重新打开 douyin.com 点扩展导出，覆盖 `douyin_cookies.txt` |
-| 小红书提示「笔记数据获取失败」 | 大概率被风控：登录并导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
+| 小红书提示「笔记数据获取失败」 | 裸 `explore/{id}` 链接会被风控，改用**分享链接**（带 xsec_token，如 xhslink 短链）重试；或导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
 | 快手提示「页面无 __APOLLO_STATE__」 | 同样先导出 `kuaishou_cookies.txt`；或链接已删除 |
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
