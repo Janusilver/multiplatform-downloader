@@ -42,5 +42,5 @@
 ## 测试
 - `douyin.py` 已用真实链接实测通过：图集（13/13 原图）、实况图动图（4/4 mp4）、视频（无水印 mp4）。
 - `kuaishou.py` 已实测通过（2026-08-15）：真实作品页链接（`short-video/<id 隐去>`），匿名与带 Cookie 均成功。**水印排查结论（用户目检确认）**：H264（4.89MB）与 H265（2.93MB）都**没有**水印；曾误判 H264 带水印（实为小红书视频）。已改为按（分辨率,码率）选最佳画质（优先 H264 高码率）。App 接口需签名（`result:50`），未实现。
-- `xhs.py` 已实测通过（2026-08-15，带登录 Cookie）：图文笔记 3/3 原图（走 `fileId` → `sns-img-bd.xhscdn.com`）、视频笔记 mp4（`media.stream.EF4` 最高清）。**视频水印**：网页流（sns-video-v2）带「小红书号」水印（用户目检确认），干净源 `video.consumer.originVideoKey` 只在部分笔记存在（ariaaa 那篇就没有）；无原始源时日志会提示。实况图（Live Photo）代码已支持（`imageList[].stream.EF4` masterUrl），未翻到样本实测。裸 `explore/{id}` 无 xsec 会被风控，需分享链接（带 xsec_token）或恰好出现在首页 feed。
+- `xhs.py` 已实测通过（2026-08-15，带登录 Cookie）：图文笔记 3/3 原图（走 `fileId` → `sns-img-bd.xhscdn.com`）、视频笔记 mp4（`media.stream.EF4` 最高清）。**视频水印**：网页流（sns-video-v2）带「小红书号」水印（用户目检确认），干净源 `video.consumer.originVideoKey` 只在部分笔记存在（ariaaa 那篇就没有）；无原始源时日志会提示。**feed API（`edith.xiaohongshu.com/api/sns/web/v1/feed`）取 originVideoKey 的路子已试：无签名/伪造签名/常见 WSUDD 公式全部 406**——该 API 对无头客户端做指纹级风控（浏览器 JS `_webmsxyw` 签名 + 会话绑定，业内工具用 playwright 起真浏览器签名），个人工具不值得，已放弃，保持页面解析方案。实况图（Live Photo）代码已支持（`imageList[].stream.EF4` masterUrl），已实测通过（3 图+3 mp4）。裸 `explore/{id}` 无 xsec 会被风控，需分享链接（带 xsec_token）或恰好出现在首页 feed。
 - 打包：本地 PyInstaller 实测通过（55.8MB，curl_cffi 已进包）。
