@@ -4,6 +4,8 @@
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
+**[English](README.en.md)**
+
 [![Build](https://img.shields.io/github/actions/workflow/status/Janusilver/douyin-dl/build.yml?label=build)](https://github.com/Janusilver/douyin-dl/actions)
 [![GitHub stars](https://img.shields.io/github/stars/Janusilver/douyin-dl?style=flat-square)](https://github.com/Janusilver/douyin-dl/stargazers)
 [![GitHub license](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey)](LICENSE)

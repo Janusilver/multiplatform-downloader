@@ -207,7 +207,18 @@ def process(link: str, out_dir: Path, s: requests.Session) -> None:
         u = ul[0].replace("/playwm/", "/play/")   # 去水印
         dest = out_dir / f"{base}.mp4"
         print(f"  [*] 视频: {desc[:40] or '(无标题)'} by {author}")
-        ok_f, _ = download(u, dest, s, label="视频", timeout=(10, 600))
+        # 主路径（playwm→play）；失败时用 snssdk 直链兜底（play_addr.uri 即 video_id）
+        candidates = [u]
+        vid = play.get("uri")
+        if vid:
+            candidates.append(
+                f"https://aweme.snssdk.com/aweme/v1/play/"
+                f"?video_id={vid}&ratio=1080p&line=0")
+        ok_f = False
+        for cand in candidates:
+            ok_f, _ = download(cand, dest, s, label="视频", timeout=(10, 600))
+            if ok_f:
+                break
         if ok_f:
             print(f"  [✓] 已保存 → {dest}")
 

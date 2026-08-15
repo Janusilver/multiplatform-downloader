@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/douyin-dl/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}

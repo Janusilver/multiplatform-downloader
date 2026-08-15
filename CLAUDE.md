@@ -17,11 +17,11 @@
 .venv/Scripts/python.exe xhs.py "链接" [-o 目录] [-c cookie文件]      # 小红书
 .venv/Scripts/python.exe kuaishou.py "链接" [-o 目录] [-c cookie文件] # 快手
 ```
-3. **GUI / exe**：`gui.py` 自动分流四个平台，Cookie 文件名固定为 exe 同目录的 `douyin_cookies.txt` / `xhs_cookies.txt` / `kuaishou_cookies.txt`；**下载历史**自动记录到 exe 同目录 `history.json`（时间/平台/链接/结果，上限 200 条，点「历史」按钮查看，已被 .gitignore 排除）。**自动检查更新**：`APP_VERSION` 版本号 + `latest_release()`（启动线程查 GitHub latest release，直连失败回退 `127.0.0.1:7890` 代理，不打扰用户）→ 有新版本主线程弹窗跳转下载页；**发新版本 = 改 `APP_VERSION` + 打 `v*` tag**（CI 自动出包 + sync-meta 填 Release 正文）。
+3. **GUI / exe**：`gui.py` 自动分流四个平台，Cookie 文件名固定为 exe 同目录的 `douyin_cookies.txt` / `xhs_cookies.txt` / `kuaishou_cookies.txt`；**下载历史**自动记录到 exe 同目录 `history.json`（时间/平台/链接/结果，上限 200 条，点「历史」按钮查看，已被 .gitignore 排除）。**自动检查更新**：`APP_VERSION` 版本号 + `latest_release()`（启动线程查 GitHub latest release，直连失败回退 `127.0.0.1:7890` 代理，不打扰用户）→ 有新版本主线程弹窗跳转下载页；**发新版本 = 改 `APP_VERSION` + 打 `v*` tag**（CI 自动出包 + sync-meta 填 Release 正文）。README 有中英双版本（README.md / README.en.md，顶部互链）。
 4. **B站**：双击 `bilibili.bat`，粘贴 BV/av/b23.tv 链接（无需 Cookie；1080p+ 需登录）。**支持裸输入**：只贴 BV 号/av 号/b23.tv 也会自动补全成完整 URL 再下。
 
 ## 实现要点（改前先读）
-- `douyin.py`：短链→aweme_id→`aweme/v1/web/aweme/detail` API（带 Cookie，**无需签名**）→ 图集走 `url_list`（**无水印** jpeg，分辨率不变；`download_url_list` 带作者「抖音号」水印，已弃用），视频走 `video.play_addr.url_list` 去 `playwm`。
+- `douyin.py`：短链→aweme_id→`aweme/v1/web/aweme/detail` API（带 Cookie，**无需签名**）→ 图集走 `url_list`（**无水印** jpeg，分辨率不变；`download_url_list` 带作者「抖音号」水印，已弃用），视频走 `video.play_addr.url_list` 去 `playwm`，**失败时用 snssdk 直链兜底**（`play_addr.uri` 即 video_id：`https://aweme.snssdk.com/aweme/v1/play/?video_id={uri}&ratio=1080p&line=0`，2026-08-15 新增，纯增量未单独实测）。
 - **图片 CDN 防盗链：下载图片只能带 UA，不能带 Cookie/Referer**（否则 403）。`download_bare()` 处理。
 - 视频下载走带 session 的 `download()`，已实测（`playwm`→`play` 去水印成功）。
 - `xhs.py`：链接→笔记 ID→curl_cffi GET `explore/{id}?xsec_token=...&xsec_source=...`（分享链接跳转后自带 xsec；裸 `explore/{id}` 无 xsec 会被风控 302 到 404/sec 页，会尝试从首页 feed 借 xsecToken）→ 解析 `window.__INITIAL_STATE__` 的 `note.noteDetailMap[id].note`。**`__INITIAL_STATE__` 混有 JS 字面量**（`undefined`、`new Map([])`），`json.loads` 前必须 `clean_js()` 清洗。**原图**：`imageList[].fileId` → `https://sns-img-bd.xhscdn.com/{fileId}`（无水印原图；旧字段 urlDefault 是 webp 压缩预览，直接拼会 404）；**实况图**：`imageList[].stream.EF4[0].masterUrl`；**视频**：优先 `video.consumer.originVideoKey`（原始无水印），退回 `video.media.stream` 的 EF4/EF5/EF7/EF6/h264/h265 各流 masterUrl（列表升序，取最后最高清）。**视频笔记判断**：`note.type=="video"` 优先于 imageList（视频笔记的 imageList 有 1~3 张封面，不能当图集下）。CDN 下载只带 UA（`download()`）。
