@@ -75,14 +75,15 @@ def resolve_photo_id(url: str, cookie: str) -> str | None:
     return None
 
 
-def fetch_photo(photo_id: str, cookie: str) -> dict:
+def fetch_photo(photo_id: str, cookie: str) -> tuple[dict, dict]:
+    """返回 (photo, defaultClient)。defaultClient 用于解析 manifest 的 Apollo 引用。"""
     url = f"https://www.kuaishou.com/short-video/{photo_id}"
     r = get(url, cookie)
     text = r.text
     m = re.search(r"window\.__APOLLO_STATE__\s*=\s*", text)
     if not m:
         print("  [!] 页面无 __APOLLO_STATE__（可能被风控，试试带 Cookie）")
-        return {}
+        return {}, {}
     raw = text[m.end():]
     raw = raw[:raw.find("</script>")]
     raw = raw.replace(IIFE_TAIL, "").rstrip().rstrip(";")
@@ -90,7 +91,7 @@ def fetch_photo(photo_id: str, cookie: str) -> dict:
         st = json.loads(raw)
     except json.JSONDecodeError as e:
         print(f"  [!] __APOLLO_STATE__ 解析失败: {e}")
-        return {}
+        return {}, {}
     dc = st.get("defaultClient") or {}
     photo = dc.get(f"VisionVideoDetailPhoto:{photo_id}") or {}
     if photo:
@@ -99,19 +100,66 @@ def fetch_photo(photo_id: str, cookie: str) -> dict:
             if k.startswith("VisionVideoDetailAuthor:"):
                 photo.setdefault("_authorName", (v or {}).get("name"))
                 break
-    return photo
+    return photo, dc
 
 
-def video_urls(photo: dict) -> list[str]:
-    """manifest 各档清晰度 URL（无水印），从低到高返回，取最后一个最高清。"""
-    urls = []
-    for aset in (photo.get("manifest") or {}).get("adaptationSet") or []:
-        for rep in aset.get("representation") or []:
-            for k in ("url", "backupUrl"):
-                if rep.get(k):
-                    urls.append(rep[k])
-                    break
-    return urls
+def resolve_ref(v, dc: dict):
+    """Apollo 引用（{"type":"id","id":"..."}）→ defaultClient 里的真实对象。"""
+    hops = 0
+    while isinstance(v, dict) and v.get("type") == "id" \
+            and isinstance(v.get("id"), str):
+        nxt = dc.get(v["id"])
+        if not isinstance(nxt, dict):
+            return nxt or v
+        v = nxt
+        hops += 1
+        if hops > 10:
+            break
+    return v
+
+
+def video_urls(photo: dict, dc: dict) -> list[str]:
+    """收集 H264 + H265 全部候选档，按（分辨率, 码率）降序返回，取第一个即最佳画质。
+    实测（2026-08）：快手网页两种编码的文件都不带平台水印（H264 upic 4.89MB vs
+    H265 bs2 2.93MB，同为 720p 时 H264 码率更高画质更好）。"""
+    cands = []
+
+    def add(man, suffix):
+        man = resolve_ref(man, dc) if isinstance(man, dict) else man
+        for aset in (man or {}).get("adaptationSet") or []:
+            aset = resolve_ref(aset, dc)
+            for rep in (aset or {}).get("representation") or []:
+                rep = resolve_ref(rep, dc)
+                if not isinstance(rep, dict):
+                    continue
+                urls = []
+                for k in ("url", "backupUrl"):
+                    val = rep.get(k)
+                    if isinstance(val, dict) and val.get("json"):
+                        urls.extend(v for v in val["json"] if isinstance(v, str))
+                    elif isinstance(val, str):
+                        urls.append(val)
+                    if urls and k == "url":
+                        break
+                for u in urls:
+                    cands.append((u, rep.get("height") or 0,
+                                  rep.get("avgBitrate") or 0))
+
+    add(photo.get("manifest"), "h264")
+    mh = photo.get("manifestH265")
+    if isinstance(mh, dict):
+        mh = mh.get("json") or mh
+    add(mh, "h265")
+    for key in ("photoUrl", "photoH265Url"):
+        if photo.get(key):
+            cands.append((photo[key], 0, 0))
+
+    seen, out = set(), []
+    for u, h, br in sorted(cands, key=lambda x: (x[1], x[2]), reverse=True):
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
 
 
 def atlas_urls(photo: dict) -> list[str]:
@@ -165,7 +213,7 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
     if not pid:
         print("  [!] 无法解析 photoId")
         return
-    photo = fetch_photo(pid, cookie)
+    photo, dc = fetch_photo(pid, cookie)
     if not photo:
         print("  [!] 作品数据获取失败（可能被风控/作品已删除）")
         return
@@ -188,15 +236,13 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
         print(f"  [✓] 已保存 {ok}/{len(atlas)} 张 → {sub}")
         return
 
-    vids = video_urls(photo)
-    if not vids:
-        vids = [photo["photoUrl"]] if photo.get("photoUrl") else []
+    vids = video_urls(photo, dc)
     if not vids:
         print("  [!] 既无图集也无视频地址")
         return
     dest = out_dir / f"{base}.mp4"
     print(f"  [*] 视频: {caption[:40] or '(无标题)'} by {author}")
-    if download(vids[-1], dest, label="视频"):
+    if download(vids[0], dest, label="视频"):
         print(f"  [✓] 已保存 → {dest}")
 
 

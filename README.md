@@ -143,7 +143,7 @@ pip install requests yt-dlp curl_cffi
 .venv\Scripts\python.exe kuaishou.py links.txt
 ```
 
-视频取作品页 `__APOLLO_STATE__` 里的 **manifest 原始档**（无水印），按清晰度从低到高取最高档；图集走 `ext_params.atlas`。
+视频自动选**最高画质档**（按分辨率+码率排序；实测 H264 720p/3.4Mbps 与 H265 720p/2Mbps 均**无水印**，优先高码率 H264）；图集走 `ext_params.atlas`。小红书视频若没有原始文件源会退回网页流，可能带小红书号水印（日志有提示）。
 
 ## 🎬 B站下载
 
@@ -163,6 +163,7 @@ pip install requests yt-dlp curl_cffi
 | 抖音下载提示 Cookie 失效 / 解析不到内容 | 重新打开 douyin.com 点扩展导出，覆盖 `douyin_cookies.txt` |
 | 小红书提示「笔记数据获取失败」 | 大概率被风控：登录并导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
 | 快手提示「页面无 __APOLLO_STATE__」 | 同样先导出 `kuaishou_cookies.txt`；或链接已删除 |
+| 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
 | exe 双击没反应 / 启动慢 | 单文件 exe 启动需解压，等 3–15 秒属正常；报错看同目录 `error.log` |

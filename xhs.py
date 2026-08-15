@@ -235,6 +235,8 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
         if not vids:
             print("  [!] 未找到视频地址")
             return
+        if not (note.get("video") or {}).get("consumer", {}).get("originVideoKey"):
+            print("  [!] 该视频无原始文件源，网页流可能带小红书号水印")
         dest = out_dir / f"{base}.mp4"
         print(f"  [*] 视频: {title[:40] or '(无标题)'} by {author}")
         if download(vids[0], dest, label="视频", timeout=(10, 600)):
