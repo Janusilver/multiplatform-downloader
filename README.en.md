@@ -175,7 +175,7 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Xiaohongshu video has a 小红书号 watermark | The note has no original-file source; web streams carry it — platform behavior, not bypassable |
 | Album images watermarked | Update to the latest version; new builds use watermark-free sources |
 | Bilibili ffmpeg errors | Make sure `ffmpeg\ffmpeg.exe` exists (see Install) |
-| exe won't start / slow start | One-file exe unpacks on launch, 3–15 s is normal; check `error.log` next to the exe |
+| exe won't start / keeps spinning | **First run** unpacks 55 MB + Defender scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
 
 ## ⚠️ Disclaimer
 

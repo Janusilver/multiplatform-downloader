@@ -177,7 +177,7 @@ pip install requests yt-dlp curl_cffi
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
-| exe 双击没反应 / 启动慢 | 单文件 exe 启动需解压，等 3–15 秒属正常；报错看同目录 `error.log` |
+| exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + Defender 扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
 
 ## ⚠️ 免责声明
 
