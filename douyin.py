@@ -182,7 +182,8 @@ def process(link: str, out_dir: Path, s: requests.Session) -> None:
                         ext = MIME_EXT.get(ctype, ".jpg")
                         (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
                         done = True
-                ok_f, _ = download(v_url[0], sub / f"{i:02d}.mp4", s, label=f"动图{i}")
+                u = v_url[0].replace("watermark=1", "watermark=0")  # url_list[0] 可能排到带水印档，强制归一
+                ok_f, _ = download(u, sub / f"{i:02d}.mp4", s, label=f"动图{i}")
                 if ok_f:
                     done = True
             else:

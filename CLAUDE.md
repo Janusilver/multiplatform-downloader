@@ -33,6 +33,7 @@
 
 ## 坑
 - **图集水印**：`download_url_list` 是带「抖音号：xxx」水印的高清版（模板含 `~tplv-dy-water-v2:`），`url_list` 是无水印版（`~tplv-dy-aweme-images:q75`，分辨率不变、体积几乎相同）。默认下无水印版。
+- **实况图动图水印**（2026-08-19 实测）：内嵌视频的 `download_addr.url_list[0]` **不保证是 `watermark=0`**，服务端可能把 `watermark=1` 档排在 `[0]`（同一 video_id 下 `watermark=0` → 干净 294KB，`watermark=1` → 带水印 503KB，实测参数交换有效）。下载前必须 `.replace("watermark=1", "watermark=0")` 归一，不能直接取 `url_list[0]`。
 - **小红书 `__INITIAL_STATE__` 是 JS 赋值的 JSON**，混有 `undefined` / `new Map([])` 等字面量，必须先 `clean_js()` 清洗再 `json.loads`。被风控时页面是 404/sec 页，特征是 900KB 左右、`sec_` 出现在跳转 URL 里。
 - **快手 `__APOLLO_STATE__` 有 IIFE 尾巴**，必须替换掉才能 `json.loads`。
 - Cookie 过期（几周）：重新打开对应站点点扩展导出，覆盖对应 cookies.txt。
