@@ -17,6 +17,8 @@
 .venv/Scripts/python.exe xhs.py "链接" [-o 目录] [-c cookie文件]      # 小红书
 .venv/Scripts/python.exe kuaishou.py "链接" [-o 目录] [-c cookie文件] # 快手
 ```
+
+不带 `-o` 时默认保存到**脚本所在目录**的 `downloads/`（与运行目录无关，从哪跑都固定落同一处）。
 3. **GUI / exe**：`gui.py` 自动分流四个平台，Cookie 文件名固定为 exe 同目录的 `douyin_cookies.txt` / `xhs_cookies.txt` / `kuaishou_cookies.txt`；**下载历史**自动记录到 exe 同目录 `history.json`（时间/平台/链接/结果，上限 200 条，点「历史」按钮查看，已被 .gitignore 排除）。**自动检查更新**：`APP_VERSION` 版本号 + `latest_release()`（启动线程查 GitHub latest release，直连失败回退 `127.0.0.1:7890` 代理，不打扰用户）→ 有新版本主线程弹窗跳转下载页；**发新版本 = 改 `APP_VERSION` + 打 `v*` tag**（CI 自动出包 + sync-meta 填 Release 正文）。README 有中英双版本（README.md / README.en.md，顶部互链）。
 4. **B站**：双击 `bilibili.bat`，粘贴 BV/av/b23.tv 链接（无需 Cookie；1080p+ 需登录）。**支持裸输入**：只贴 BV 号/av 号/b23.tv 也会自动补全成完整 URL 再下。
 

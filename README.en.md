@@ -128,7 +128,7 @@ Double-click `douyin.bat` and paste a link, or CLI:
 .venv\Scripts\python.exe douyin.py "链接" -o 目录      # custom dir
 ```
 
-Albums save to `downloads\作者_描述\01.jpg ...`; Live Photo albums get a numbered `.mp4` per image.
+Without `-o`, files save to the `downloads\` folder next to the script (independent of the working directory). Albums save to `downloads\作者_描述\01.jpg ...`; Live Photo albums get a numbered `.mp4` per image.
 
 ## 📕 Xiaohongshu
 

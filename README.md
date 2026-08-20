@@ -130,7 +130,7 @@ pip install requests yt-dlp curl_cffi
 .venv\Scripts\python.exe douyin.py "链接" -o 我的目录  # 指定目录
 ```
 
-图集会保存为 `downloads\作者_描述\01.jpg ...`；实况图图集每张图会多一个同编号的 `.mp4`。
+不带 `-o` 时默认保存到脚本所在目录的 `downloads\`（与运行目录无关）。图集会保存为 `downloads\作者_描述\01.jpg ...`；实况图图集每张图会多一个同编号的 `.mp4`。
 
 ## 📕 小红书下载
 
