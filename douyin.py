@@ -234,11 +234,13 @@ def process(link: str, out_dir: Path, s: requests.Session) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="抖音图文/视频无水印下载器（需 douyin_cookies.txt）")
     ap.add_argument("input", help="分享链接 / 含链接的文本 / txt 文件（每行一条）")
-    ap.add_argument("-o", "--output", default="downloads", help="保存目录（默认 downloads）")
+    ap.add_argument("-o", "--output", default=None,
+                    help="保存目录（默认：脚本所在目录/downloads）")
     ap.add_argument("-c", "--cookie", default="douyin_cookies.txt", help="Cookie 文件路径")
     args = ap.parse_args()
 
-    out_dir = Path(args.output)
+    # 默认固定到脚本目录，避免从别处运行把下载散落到当前目录
+    out_dir = Path(args.output) if args.output else Path(__file__).resolve().parent / "downloads"
     out_dir.mkdir(parents=True, exist_ok=True)
     cookie = load_cookie_str(args.cookie)
     if not cookie:
