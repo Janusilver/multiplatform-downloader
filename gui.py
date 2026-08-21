@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/douyin-dl/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -147,7 +147,7 @@ class App:
         self._last_pct = ""
         self.out_dir = OUT_DIR
         self.history = load_history()
-        root.title("抖音 / 小红书 / 快手 / B站 下载器")
+        root.title(f"抖音 / 小红书 / 快手 / B站 下载器 v{APP_VERSION}")
         root.geometry("580x600")
         root.minsize(480, 440)
 
