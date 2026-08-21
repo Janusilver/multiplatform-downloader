@@ -27,6 +27,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 | Bilibili | Video + audio auto-merged; bare BV number accepted | ❌ none |
 
 - ✅ **Smart link detection**: paste whole share text; links are extracted and routed to the right platform automatically
+- ✅ **Clipboard detection**: copy a link and the app auto-detects it — a hint bar appears above the input; one click adds it to the download queue
 - ✅ **Download history**: every download recorded (time / platform / link / result); view via the "History" button; persisted to `history.json`
 - ✅ **Auto-update check**: checks GitHub for new releases on startup; prompts to download when one is found
 - ✅ **Batch download**: one link per line in a txt file; built-in throttling to avoid risk control
@@ -176,6 +177,7 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Album images watermarked | Update to the latest version; new builds use watermark-free sources |
 | Bilibili ffmpeg errors | Make sure `ffmpeg\ffmpeg.exe` exists (see Install) |
 | exe won't start / keeps spinning | **First run** unpacks 55 MB + Defender scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
+| Rebuilt after editing code, but startup still prompts to download an update | The check compares the **version baked into the exe vs the latest GitHub release tag**; if you changed code but didn't bump `APP_VERSION` (top of gui.py) before packaging, the exe is still behind and it will keep prompting. Always bump the version and tag when you repackage |
 
 ## ⚠️ Disclaimer
 

@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.2.0"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/douyin-dl/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -152,10 +152,15 @@ class App:
         root.minsize(480, 440)
 
         tk.Label(root, text="粘贴抖音 / 小红书 / 快手 / B站分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
-        box = ttk.Frame(root)
-        box.pack(fill="x", padx=10)
-        self.input = tk.Text(box, height=5, font=("Consolas", 10))
-        sb = ttk.Scrollbar(box, command=self.input.yview)
+        self.clip_bar = tk.Frame(root, bg="#fff3cd", cursor="hand2")   # 剪贴板识别提示条（初始隐藏）
+        self.clip_label = tk.Label(self.clip_bar, text="", bg="#fff3cd", anchor="w",
+                                   padx=4, pady=2, cursor="hand2")
+        self.clip_label.pack(fill="x")
+        self.clip_label.bind("<Button-1>", lambda e: self._use_clip())
+        self.box = ttk.Frame(root)
+        self.box.pack(fill="x", padx=10)
+        self.input = tk.Text(self.box, height=5, font=("Consolas", 10))
+        sb = ttk.Scrollbar(self.box, command=self.input.yview)
         self.input.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.input.pack(side="left", fill="both", expand=True)
@@ -186,6 +191,13 @@ class App:
         root.after(100, self._drain)
         self._welcome()
         threading.Thread(target=self._check_update, daemon=True).start()
+        self._last_clip = ""                     # 剪贴板监听基线
+        self._pending_clip = None                # 待填入的链接
+        try:
+            self._last_clip = (self.root.clipboard_get() or "").strip()
+        except tk.TclError:
+            self._last_clip = ""
+        root.after(500, self._poll_clipboard)
 
     # ---------- 保存目录 ----------
     def choose_dir(self) -> None:
@@ -306,12 +318,47 @@ class App:
                     tag, url = msg
                     if messagebox.askyesno(
                             "发现新版本",
-                            f"发现新版本 v{tag}（当前 v{APP_VERSION}）\n\n"
-                            "是否前往 GitHub 下载？"):
+                            f"本地版本 v{APP_VERSION}，GitHub 最新 v{tag}\n\n"
+                            "本地 exe 版本落后才会提示更新。\n"
+                            "若你刚改了代码，请先升版本号并重新打包，否则会重复提示。\n\n"
+                            "是否前往 GitHub 下载最新版？"):
                         webbrowser.open(url)
         except queue.Empty:
             pass
         self.root.after(100, self._drain)
+
+    # ---------- 剪贴板监听 ----------
+    def _poll_clipboard(self) -> None:
+        """主线程轮询剪贴板，检测到新链接时显示提示条（tkinter 剪贴板只能在主线程访问）。"""
+        try:
+            clip = (self.root.clipboard_get() or "").strip()
+        except tk.TclError:
+            clip = ""
+        if clip and clip != self._last_clip:
+            self._last_clip = clip
+            platform, url = classify(clip)
+            if url:
+                self._pending_clip = url
+                name = {"douyin": "抖音", "xhs": "小红书", "kuaishou": "快手", "bili": "B站"}.get(platform, "分享")
+                self.clip_label.configure(text=f"📋 检测到{name}分享链接，点击填入")
+                self.clip_bar.pack(fill="x", padx=10, before=self.box)
+            else:
+                self._pending_clip = None
+                self.clip_bar.pack_forget()
+        self.root.after(500, self._poll_clipboard)
+
+    def _use_clip(self) -> None:
+        """点击提示条：把识别到的链接追加进输入框。"""
+        url = self._pending_clip
+        if not url:
+            self.clip_bar.pack_forget()
+            return
+        cur = self.input.get("1.0", "end").strip()
+        self.input.delete("1.0", "end")
+        self.input.insert("1.0", (cur + "\n" + url).strip())
+        self._pending_clip = None
+        self.clip_bar.pack_forget()
+        self._post(f"[+] 已加入链接：{url[:60]}")
 
     # ---------- 下载 ----------
     def start(self) -> None:
