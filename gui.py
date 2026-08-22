@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.3.0"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -50,6 +50,15 @@ IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
 HISTORY_MAX = 200
+
+
+def abbrev_path(path: Path) -> str:
+    """路径缩写：超过两级时只显示最后两级，前面用 … 省略。
+    完整路径通过悬停 tooltip 查看，避免长路径把右侧按钮挤没。"""
+    parts = list(path.parts)
+    if len(parts) <= 2:
+        return str(path)
+    return "…" + "\\" + "\\".join(parts[-2:])
 
 
 def load_history() -> list[dict]:
@@ -188,20 +197,27 @@ class App:
         prow.pack(fill="x", padx=10, pady=(0, 4))
         tk.Label(prow, text="代理（X/IG 建议填写，留空直连）：").pack(side="left")
         self.proxy_var = tk.StringVar()
+        # 自动读 Windows 系统代理（Clash 等已开启「系统代理」时），填进代理框，可手动改/清空
+        system_proxy = douyin.detect_system_proxy()
+        if system_proxy:
+            self.proxy_var.set(system_proxy)
         self.proxy_entry = ttk.Entry(prow, textvariable=self.proxy_var, width=30)
         self.proxy_entry.pack(side="left", fill="x", expand=True)
 
         drow = ttk.Frame(root)
         drow.pack(fill="x", padx=10)
-        self.dir_label = tk.Label(drow, text=f"文件保存到：{self.out_dir}",
-                                  anchor="w", fg="#555")
-        self.dir_label.pack(side="left")
         ttk.Button(drow, text="历史", width=6,
                    command=self.open_history).pack(side="right", padx=(0, 6))
         ttk.Button(drow, text="选择目录", width=10,
                    command=self.choose_dir).pack(side="right")
         ttk.Button(drow, text="打开目录", width=10,
                    command=self.open_dir).pack(side="right", padx=(0, 6))
+        self.dir_label = tk.Label(drow, text=f"文件保存到：{abbrev_path(self.out_dir)}",
+                                  anchor="w", fg="#555")
+        # 按钮先 pack（右侧优先占位），Label 再占剩余空间；路径用 abbrev_path 缩写，
+        # 悬停 tooltip 显示完整路径，按钮和路径都始终完整可见。
+        self.dir_label.pack(side="left", fill="x", expand=True)
+        self._tooltip(self.dir_label, f"文件保存到：{self.out_dir}")
 
         logbox = ttk.Frame(root)
         logbox.pack(fill="both", expand=True, padx=10, pady=(4, 10))
@@ -223,12 +239,32 @@ class App:
         root.after(500, self._poll_clipboard)
 
     # ---------- 保存目录 ----------
+    def _tooltip(self, widget: tk.Widget, text: str) -> None:
+        """悬停提示：无边框置顶小窗，用于显示缩写路径的完整值。"""
+        tip = None
+        def on_enter(e):
+            nonlocal tip
+            tip = tk.Toplevel(self.root)
+            tip.wm_overrideredirect(True)
+            tip.attributes("-topmost", True)
+            tk.Label(tip, text=text, bg="#ffffe0", relief="solid", borderwidth=1,
+                     font=("Consolas", 9)).pack()
+            tip.wm_geometry(f"+{e.x_root + 12}+{e.y_root + 12}")
+        def on_leave(e):
+            nonlocal tip
+            if tip is not None:
+                tip.destroy()
+                tip = None
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
+
     def choose_dir(self) -> None:
         d = filedialog.askdirectory(initialdir=str(self.out_dir),
                                     title="选择保存目录")
         if d:
             self.out_dir = Path(d)
-            self.dir_label.configure(text=f"文件保存到：{self.out_dir}")
+            self.dir_label.configure(text=f"文件保存到：{abbrev_path(self.out_dir)}")
+            self._tooltip(self.dir_label, f"文件保存到：{self.out_dir}")
 
     def open_dir(self) -> None:
         self.out_dir.mkdir(parents=True, exist_ok=True)

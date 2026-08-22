@@ -197,6 +197,12 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
             proxy: str = "", max_items: int = 50) -> None:
     """下载单条帖子/Reels 或用户主页。out_dir 需已存在。"""
     out_dir.mkdir(parents=True, exist_ok=True)
+    if not proxy:
+        proxy = douyin.detect_system_proxy()
+        if proxy:
+            print(f"  [*] 检测到系统代理：{proxy}")
+    if proxy and "://" not in proxy:                     # 无 scheme 的代理（requests/curl 都要求）
+        proxy = "http://" + proxy
     if not (cookie_path and Path(cookie_path).exists()):
         print("  [!] IG 需要登录 Cookie：请用浏览器扩展导出 instagram_cookies.txt 放到脚本目录")
         return

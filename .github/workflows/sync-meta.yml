@@ -42,10 +42,11 @@ jobs:
                   return e.code, json.loads(e.read() or b"{}")
 
           BODY = ("## 更新内容\n"
-                  "- 四平台一体：抖音 / 小红书 / 快手 / B站 无水印下载\n"
-                  "- 小红书：图文原图、实况图动图、视频（网页流可能带小红书号水印）\n"
-                  "- 快手：自动选最高画质档（H264/H265 均无水印）\n"
-                  "- GUI：下载历史持久化、保存目录选择、链接自动分流\n"
+                  "- 六平台一体：抖音 / 小红书 / 快手 / B站 / X (Twitter) / Instagram 无水印下载\n"
+                  "- Instagram：自研私有 API（curl_cffi），帖子 / Reels / 主页批量，图集图片+视频全提取\n"
+                  "- X：单条推文下载（yt-dlp；主页批量暂不支持）\n"
+                  "- 代理自动检测：启动时读取系统代理（Clash / V2rayN 等），IG / X 免手动填端口\n"
+                  "- GUI：下载历史持久化、保存目录选择、链接自动分流、剪贴板识别\n"
                   "- GitHub Actions 自动打包，push v* 标签即出 Release\n\n"
                   "## 使用\n"
                   "安装 Cookie 导出扩展 → 导出各平台 Cookie 放 exe 旁 → 双击运行。详见 README。")

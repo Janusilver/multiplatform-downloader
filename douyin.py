@@ -41,6 +41,40 @@ MIME_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
             "image/avif": ".avif", "image/gif": ".gif", "image/heic": ".heic"}
 
 
+def detect_system_proxy() -> str:
+    """读 Windows 系统代理（注册表 Internet Settings），返回代理地址（如 http://127.0.0.1:7890）。
+    未启用 / 读取失败返回 ""。IG、X 等国外站可直接复用本机任意代理工具（Clash / V2rayN /
+    Shadowsocks / Netch 等）开启的「系统代理」，免去手动填端口。返回带 scheme，可直接传给
+    requests / yt-dlp / curl_cffi。"""
+    try:
+        import winreg
+    except ImportError:
+        return ""                                        # 非 Windows 平台
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+        if not enabled:
+            return ""
+        server, _ = winreg.QueryValueEx(key, "ProxyServer")
+    except OSError:
+        return ""
+    for part in (server or "").split(";"):               # 多协议格式 http=..;https=..;socks=..
+        part = part.strip()
+        if not part:
+            continue
+        if "=" in part:
+            scheme, _, val = part.partition("=")
+            val = val.strip()
+            if scheme.lower() in ("http", "https"):
+                return "http://" + val
+            if scheme.lower() in ("socks", "socks5"):
+                return "socks5://" + val                # SOCKS 代理必须带 socks5:// 前缀
+        else:                                            # 纯 "host:port"（WinINET 固定是 http 代理）
+            return "http://" + part
+    return ""
+
+
 def load_cookie_str(path: str = "douyin_cookies.txt") -> str:
     """读扩展导出的 cookies.txt，转成 Cookie 请求头字符串。"""
     pairs = []

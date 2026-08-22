@@ -1,6 +1,6 @@
 # multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
-Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), and **X (Twitter) / Instagram** watermark-free tweets, posts, Reels, and user-profile batches. Six platforms, one window.
+Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels / user-profile batches. Six platforms, one window.
 
 > A personal tool for **personal archiving & learning**. Respect creators' copyright — do not redistribute watermark-free content.
 
@@ -25,7 +25,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 | Xiaohongshu | Watermark-free images, Live Photo mp4, videos (web streams may carry a 小红书号 watermark) | recommended (anonymous may be risk-blocked) |
 | Kuaishou | Watermark-free videos, albums | recommended (works anonymously) |
 | Bilibili | Video + audio auto-merged; bare BV number accepted | ❌ none |
-| X (Twitter) | Tweet videos/images, user-profile batches; naturally watermark-free | recommended (anonymous may hit the login wall) |
+| X (Twitter) | Single tweets (videos/images); naturally watermark-free | recommended (anonymous may hit the login wall) |
 | Instagram | Post albums / Reels / user-profile batches; naturally watermark-free | recommended (anonymous usually fails) |
 
 - ✅ **Smart link detection**: paste whole share text; links are extracted and routed to the right platform automatically
@@ -175,18 +175,19 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 
 ## 🐦 X / 📷 Instagram
 
-Reuses yt-dlp (the same path as Bilibili). Supports **single items** (tweets / posts / Reels) and **user-profile batches** (50 latest by default). Media are original CDN links, **naturally watermark-free**.
+- **X**: via yt-dlp, supports **single tweets** (`/status/ID`); **user-profile batches are not supported** (yt-dlp has no X profile extractor). Media are original CDN links, **naturally watermark-free**.
+- **Instagram**: self-built private API (curl_cffi Chrome TLS impersonation), supports **single items** (posts / Reels) and **user-profile batches**; albums / carousels **extract all media** (images + videos at once).
 
 ```bash
-.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # single tweet
-.venv\Scripts\python.exe twitter.py "https://x.com/user" --max 10              # profile batch (max 10)
-.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # post
+.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # X single tweet
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # post (full album)
 .venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/"    # Reels
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/user/" --max 10  # profile batch
 ```
 
 > **Prereq**: X now needs a logged-in cookie (anonymous may hit the login wall); IG needs a login session (anonymous usually fails) — export `twitter_cookies.txt` / `instagram_cookies.txt` via the extension, placed next to the script / exe.
 >
-> **Proxy**: both platforms are hosted overseas; direct connections from China are unstable. Fill in the GUI "代理" box or pass `--proxy` (e.g. `http://127.0.0.1:7890`); the four domestic platforms are unaffected and stay direct.
+> **Proxy**: both platforms are hosted overseas; direct connections from China are unstable. The GUI "代理" box **auto-reads the Windows system proxy on startup** (auto-fills `127.0.0.1:7890` when Clash etc. has "system proxy" enabled) — editable / clearable; the CLI scripts auto-detect it too when `--proxy` is omitted. The four domestic platforms are unaffected and stay direct.
 
 ## ❓ FAQ
 

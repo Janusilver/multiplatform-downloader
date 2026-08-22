@@ -1,6 +1,6 @@
 # multiplatform-downloader · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter) / Instagram** 的**无水印**推文、帖子、Reels 与用户主页批量。六个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels / 主页批量**。六个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -25,7 +25,7 @@
 | 小红书 | 图文无水印原图、动图 mp4、视频（网页流可能带小红书号水印） | 建议（匿名可能被风控） |
 | 快手 | 无水印视频、图集 | 建议（匿名可用） |
 | B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
-| X (Twitter) | 推文视频 / 图片 / 用户主页批量，天然无水印 | 建议（匿名可能被登录墙挡住） |
+| X (Twitter) | 单条推文（视频 / 图片），天然无水印 | 建议（匿名可能被登录墙挡住） |
 | Instagram | 帖子图集 / Reels / 用户主页批量，天然无水印 | 建议（匿名大概率失败） |
 
 - ✅ **智能识别链接**：粘贴整段分享文案也能自动提取链接，自动分流到对应平台
@@ -177,18 +177,19 @@ pip install requests yt-dlp curl_cffi
 
 ## 🐦 X / 📷 Instagram 下载
 
-复用 yt-dlp（与 B站 同一条路）。支持**单条**（推文 / 帖子 / Reels）与**用户主页批量**（默认最近 50 条）。两平台媒体是原始 CDN 直链，**天然无水印**。
+- **X**：走 yt-dlp，支持**单条推文**（`/status/ID`）；**主页批量暂不支持**（yt-dlp 无 X 用户主页提取器）。媒体是原始 CDN 直链，**天然无水印**。
+- **Instagram**：自研私有 API（curl_cffi 伪装 Chrome TLS），支持**单条**（帖子 / Reels）与**用户主页批量**；图集 / 轮播**全媒体提取**（图片 + 视频一次全下）。
 
 ```bash
-.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # 单条
-.venv\Scripts\python.exe twitter.py "https://x.com/user" --max 10              # 主页批量（最多 10 条）
-.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # 帖子
+.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # X 单条推文
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # 帖子（图集全提取）
 .venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/"    # Reels
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/user/" --max 10  # 主页批量
 ```
 
 > **前提**：X 现需登录态（匿名可能被登录墙挡住）；IG 需登录 session（匿名大概率失败）——用浏览器扩展导出 `twitter_cookies.txt` / `instagram_cookies.txt` 放脚本 / exe 旁。
 >
-> **代理**：两平台服务器在国外，国内直连不稳。GUI「代理」输入框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`）；国内四平台不受影响，留空即直连。
+> **代理**：两平台服务器在国外，国内直连不稳。GUI「代理」框**启动时自动读取系统代理**（Clash 等开了「系统代理」就自动填入 `127.0.0.1:7890`），也可手动改 / 清空；CLI 不传 `--proxy` 时同样自动检测。国内四平台不受影响，留空即直连。
 
 ## ❓ 常见问题
 

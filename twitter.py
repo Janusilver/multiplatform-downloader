@@ -21,6 +21,8 @@ from pathlib import Path
 
 import yt_dlp
 
+import douyin
+
 # Windows 默认 GBK 控制台打不出 ✓ 等字符会 UnicodeEncodeError，强制 UTF-8
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -65,7 +67,13 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
     }
     if cookie_path and Path(cookie_path).exists():
         opts["cookiefile"] = str(cookie_path)   # Netscape 格式，扩展导出即用
+    if not proxy:
+        proxy = douyin.detect_system_proxy()
+        if proxy:
+            print(f"  [*] 检测到系统代理：{proxy}")
     if proxy:
+        if "://" not in proxy:                   # yt-dlp 要求带 scheme
+            proxy = "http://" + proxy
         opts["proxy"] = proxy
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:

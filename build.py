@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/快手/B站，单文件 GUI）。"""
+"""PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/快手/B站/X/Instagram，单文件 GUI）。"""
 import os
 import shutil
 import subprocess
