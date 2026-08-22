@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -230,12 +230,8 @@ class App:
         root.after(100, self._drain)
         self._welcome()
         threading.Thread(target=self._check_update, daemon=True).start()
-        self._last_clip = ""                     # 剪贴板监听基线
+        self._last_clip = ""                     # 剪贴板监听基线（空：首次轮询把当前剪贴板当新内容）
         self._pending_clip = None                # 待填入的链接
-        try:
-            self._last_clip = (self.root.clipboard_get() or "").strip()
-        except tk.TclError:
-            self._last_clip = ""
         root.after(500, self._poll_clipboard)
 
     # ---------- 保存目录 ----------
