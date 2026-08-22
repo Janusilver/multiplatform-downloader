@@ -96,3 +96,40 @@ CLI：`.venv/Scripts/python.exe twitter.py "链接" [-o 目录] [-c cookie] [--p
 - commit 用项目级 noreply 匿名身份（已配置，无需每次覆盖）。
 - `.gitignore` 确认 `twitter_cookies.txt` / `instagram_cookies.txt` 被排除（现有 cookie 文件
   已被忽略，需确认新增文件名也在忽略范围内，否则公开仓库泄露登录态）。
+
+---
+
+## 实施修订（2026-08-22 实测后）
+
+本机实测暴露了 yt-dlp 提取器的能力边界，用户选定「折中」方案，实现随之调整：
+
+### 1. IG 改为私有 API 自研（不再用 yt-dlp）
+
+yt-dlp 的 IG 提取器 `_extract_product_media()` 只提取**视频**（`video_versions` /
+`video_dash_manifest`），图集里的**静态图片直接被丢弃** → 实测 12 项图集只下到视频，
+图片报 "No video formats found"。自研补上：
+
+- **数据源**：`https://i.instagram.com/api/v1/media/{pk}/info/`（登录态，头带
+  `X-IG-App-ID: 936619743392459`），`shortcode` → `pk` 用 base64（`ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  abcdefghijklmnopqrstuvwxyz0123456789-_` 表）解码。
+- **全媒体提取**：`media_type` 8（图集）递归遍历 `carousel_media`，每项 1=图片取
+  `image_versions2.candidates` 最高分辨率原图，2=视频取 `video_versions` 最高分辨率；单图/单视频
+  同理。图片 + 视频**全部下载**，命名 `{作者}_{shortcode}_{序号:02d}.{ext}`。
+- **主页批量**：`/users/web_profile_info/?username=xxx` 拿 uid → `/feed/user/{uid}/` 分页
+  （`max_id` 翻页），同样全媒体提取。
+- **Cookie 必需**：无 `instagram_cookies.txt` 直接提示导出，不匿名白试（IG 匿名拿不到数据）。
+- **坑**：作者名含点（如 `xx.uyvn`）时不能用 `Path.with_suffix()` 构造文件名——它把点后整段当
+  扩展名替换，导致图集各媒体互相覆盖只剩最后一个。用字符串拼接。
+
+### 2. X 主页批量接受局限（只支持单条）
+
+yt-dlp 的 X 提取器**没有用户主页提取器**（只注册 `/status/` URL），实测
+"Unsupported URL: https://x.com/seeyoumm520"。用户接受该局限：
+
+- `twitter.py`：`is_profile(url)` 时明确提示「X 主页批量暂不支持，请粘贴单条推文链接」，不再白跑。
+- 单条推文命名去掉 `%(playlist_index)02d`（单条时它输出 `_NA`，污染文件名）。
+
+### 3. 其余不变
+
+- 代理可配置、匿名兜底（X 保留匿名尝试；IG 因自研 API 必需登录态）、Cookie 扩展导出机制不变。
+- `APP_VERSION` 1.2.1 → 1.3.0、打包发布流程不变。

@@ -20,8 +20,11 @@ async function exportSite(btnId) {
     for (const c of cookies) {
       if (!c.name) continue; // 个别平台有无名字的畸形 Cookie，导出会破坏格式，跳过
       const secure = c.secure ? 'TRUE' : 'FALSE';
+      // domain 带前导点 = domain cookie（所有子域生效）；不带 = host-only cookie。
+      // Netscape 第二字段必须如实反映，否则 Python http.cookiejar 断言崩溃（yt-dlp 读 cookie 报 invalid format）
+      const includeSub = c.domain.startsWith('.') ? 'TRUE' : 'FALSE';
       const expires = Math.floor(c.expirationDate || 0);
-      const row = [c.domain, 'TRUE', c.path, secure, expires, c.name, c.value].join('\t');
+      const row = [c.domain, includeSub, c.path, secure, expires, c.name, c.value].join('\t');
       // HttpOnly Cookie 按 Netscape 格式加前缀，本地工具才能识别
       lines.push((c.httpOnly ? '#HttpOnly_' : '') + row);
     }

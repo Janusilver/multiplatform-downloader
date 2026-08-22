@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-X (Twitter) 单条推文 / 用户主页 下载器（yt-dlp 封装）
-====================================================
+X (Twitter) 单条推文 下载器（yt-dlp 封装）
+==========================================
 流程：识别链接 → 交给 yt-dlp（cookies + 可选代理）→ 下载到输出目录。
 X 媒体为平台原始 CDN 直链，天然无水印。
 依赖：yt-dlp（已装 .venv）
 用法：
-  python twitter.py "https://x.com/<user>/status/<id 隐去>"          # 单条
-  python twitter.py "https://x.com/user"                     # 主页批量（默认最近 50 条）
+  python twitter.py "https://x.com/<user>/status/<id 隐去>"          # 单条推文
   python twitter.py "链接" -o 目录 --proxy http://127.0.0.1:7890
+注意：X **用户主页批量暂不支持**（yt-dlp 无主页提取器，只能下 /status/ID 单条）。
 Cookie（可选，无则匿名试一次）：浏览器扩展导出 twitter_cookies.txt 放脚本目录。
 """
 from __future__ import annotations
@@ -49,12 +49,14 @@ def is_profile(url: str) -> bool:
 
 def process(url: str, out_dir: Path, cookie_path: str | None = None,
             proxy: str = "", max_items: int = 50) -> None:
-    """下载单条推文或用户主页。out_dir 需已存在。"""
+    """下载单条推文。X 用户主页批量 yt-dlp 不支持，明确提示局限。out_dir 需已存在。"""
     out_dir.mkdir(parents=True, exist_ok=True)
-    profile = is_profile(url)
-    # 主页批量按作者建子目录；单条平铺在 out_dir
-    tmpl = ("%(uploader)s/%(id)s_%(playlist_index)02d.%(ext)s" if profile
-            else "%(uploader)s_%(id)s_%(playlist_index)02d.%(ext)s")
+    if is_profile(url):
+        print("  [!] X 主页批量暂不支持：yt-dlp 只能下载单条推文（/status/ID）。")
+        print("      请粘贴具体推文链接，例如 https://x.com/用户名/status/12345")
+        return
+    # 单条推文：作者名_推文ID.ext。不带 playlist_index（单条时它变 NA，污染文件名）
+    tmpl = "%(uploader)s_%(id)s.%(ext)s"
     opts: dict = {
         "outtmpl": str(out_dir / tmpl),
         "quiet": True,
@@ -65,8 +67,6 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         opts["cookiefile"] = str(cookie_path)   # Netscape 格式，扩展导出即用
     if proxy:
         opts["proxy"] = proxy
-    if profile and max_items:
-        opts["playlist_items"] = f"1:{max_items}"
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
@@ -77,12 +77,12 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="X (Twitter) 单条推文/主页批量下载器（yt-dlp）")
-    ap.add_argument("input", help="推文/主页链接，或含链接的文本")
+    ap = argparse.ArgumentParser(description="X (Twitter) 单条推文下载器（yt-dlp；主页批量暂不支持）")
+    ap.add_argument("input", help="推文链接，或含链接的文本")
     ap.add_argument("-o", "--output", default=None, help="保存目录（默认：脚本目录/downloads）")
     ap.add_argument("-c", "--cookie", default="twitter_cookies.txt", help="Cookie 文件路径（可缺省，匿名试一次）")
     ap.add_argument("--proxy", default="", help="代理地址，如 http://127.0.0.1:7890（默认直连）")
-    ap.add_argument("--max", type=int, default=50, help="主页批量上限（默认 50）")
+    ap.add_argument("--max", type=int, default=50, help="保留参数（主页批量暂不支持，忽略）")
     args = ap.parse_args()
 
     out_dir = Path(args.output) if args.output else Path(__file__).resolve().parent / "downloads"
