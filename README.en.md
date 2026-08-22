@@ -1,6 +1,6 @@
 # douyin-dl · Multi-Platform Watermark-Free Downloader
 
-Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, plus **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio). Four platforms, one window.
+Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), and **X (Twitter) / Instagram** watermark-free tweets, posts, Reels, and user-profile batches. Six platforms, one window.
 
 > A personal tool for **personal archiving & learning**. Respect creators' copyright — do not redistribute watermark-free content.
 
@@ -25,6 +25,8 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 | Xiaohongshu | Watermark-free images, Live Photo mp4, videos (web streams may carry a 小红书号 watermark) | recommended (anonymous may be risk-blocked) |
 | Kuaishou | Watermark-free videos, albums | recommended (works anonymously) |
 | Bilibili | Video + audio auto-merged; bare BV number accepted | ❌ none |
+| X (Twitter) | Tweet videos/images, user-profile batches; naturally watermark-free | recommended (anonymous may hit the login wall) |
+| Instagram | Post albums / Reels / user-profile batches; naturally watermark-free | recommended (anonymous usually fails) |
 
 - ✅ **Smart link detection**: paste whole share text; links are extracted and routed to the right platform automatically
 - ✅ **Clipboard detection**: copy a link and the app auto-detects it — a hint bar appears above the input; one click adds it to the download queue
@@ -42,17 +44,20 @@ For people who don't want Python: **clone or download this repo, then double-cli
 | File | Purpose |
 |---|---|
 | `release\多平台下载器.exe` | Main program, double-click to run |
-| `extensions\cookie-export\` | Browser extension: export Douyin / Xiaohongshu / Kuaishou cookies (Bilibili needs none) |
+| `extensions\cookie-export\` | Browser extension: export Douyin / Xiaohongshu / Kuaishou / X / Instagram cookies (Bilibili needs none) |
 | `douyin_cookies.txt` | Douyin cookie (**required**), placed next to the exe |
 | `xhs_cookies.txt` | Xiaohongshu cookie (recommended), next to the exe |
 | `kuaishou_cookies.txt` | Kuaishou cookie (recommended), next to the exe |
+| `twitter_cookies.txt` | X cookie (recommended, login wall), next to the exe |
+| `instagram_cookies.txt` | Instagram cookie (recommended, anonymous usually fails), next to the exe |
 
 **First run (4 steps):**
 
 1. **Install the extension**: Edge `edge://extensions/` (Chrome: `chrome://extensions/`) → enable "Developer mode" (bottom left) → "Load unpacked" → pick the `cookie-export` folder
 2. **Export Douyin cookie** (required): open [douyin.com](https://www.douyin.com) logged in → click the extension icon → export → put `douyin_cookies.txt` next to the exe
 3. **Export Xiaohongshu / Kuaishou cookies** (recommended): open logged-in [xiaohongshu.com](https://www.xiaohongshu.com) and [kuaishou.com](https://www.kuaishou.com), export each, same location
-4. **Double-click the exe**: paste a link, click "开始下载"; files go to `downloads\`
+4. **Export X / Instagram cookies** (recommended when downloading X/IG): open logged-in [x.com](https://x.com) and [instagram.com](https://www.instagram.com), export each, same location
+5. **Double-click the exe**: paste a link, click "开始下载"; files go to `downloads\`
 
 > 💡 Bilibili only: no cookie at all. Douyin only: steps 1+2. Xiaohongshu/Kuaishou work without cookies but risk control is more likely.
 
@@ -69,11 +74,13 @@ douyin-dl/
 ├── douyin.py            # Douyin core downloader
 ├── xhs.py               # Xiaohongshu downloader (curl_cffi Chrome impersonation)
 ├── kuaishou.py          # Kuaishou downloader (__APOLLO_STATE__ parsing)
+├── twitter.py           # X downloader (yt-dlp wrapper)
+├── instagram.py         # Instagram downloader (yt-dlp wrapper)
 ├── douyin.bat           # Douyin entry (double-click)
 ├── xhs.bat              # Xiaohongshu entry (double-click)
 ├── kuaishou.bat         # Kuaishou entry (double-click)
 ├── bilibili.bat         # Bilibili entry (double-click)
-├── gui.py               # Four-platform GUI (PyInstaller entry)
+├── gui.py               # Six-platform GUI (PyInstaller entry)
 ├── build.bat            # Build entry: installs deps + runs build.py
 ├── build.py             # PyInstaller script (filters out tcl interference)
 ├── .github/workflows/   # build.yml: auto-release; sync-meta.yml: fills Release notes
@@ -83,7 +90,7 @@ douyin-dl/
 ├── release/
 │   └── 多平台下载器.exe  # Ready-to-run exe
 ├── extensions/
-│   └── cookie-export/   # Three-platform cookie export extension
+│   └── cookie-export/   # Five-platform cookie export extension
 ├── douyin_cookies.txt   # [PRIVATE] Douyin cookie, gitignored
 ├── xhs_cookies.txt      # [PRIVATE] Xiaohongshu cookie, gitignored
 ├── kuaishou_cookies.txt # [PRIVATE] Kuaishou cookie, gitignored
@@ -166,6 +173,21 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 
 1080p / 4K need a premium account; free users get the best available quality, merged into one mp4 with ffmpeg.
 
+## 🐦 X / 📷 Instagram
+
+Reuses yt-dlp (the same path as Bilibili). Supports **single items** (tweets / posts / Reels) and **user-profile batches** (50 latest by default). Media are original CDN links, **naturally watermark-free**.
+
+```bash
+.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # single tweet
+.venv\Scripts\python.exe twitter.py "https://x.com/user" --max 10              # profile batch (max 10)
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # post
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/"    # Reels
+```
+
+> **Prereq**: X now needs a logged-in cookie (anonymous may hit the login wall); IG needs a login session (anonymous usually fails) — export `twitter_cookies.txt` / `instagram_cookies.txt` via the extension, placed next to the script / exe.
+>
+> **Proxy**: both platforms are hosted overseas; direct connections from China are unstable. Fill in the GUI "代理" box or pass `--proxy` (e.g. `http://127.0.0.1:7890`); the four domestic platforms are unaffected and stay direct.
+
 ## ❓ FAQ
 
 | Problem | Fix |
@@ -178,6 +200,8 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Bilibili ffmpeg errors | Make sure `ffmpeg\ffmpeg.exe` exists (see Install) |
 | exe won't start / keeps spinning | **First run** unpacks 55 MB + Defender scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
 | Rebuilt after editing code, but startup still prompts to download an update | The check compares the **version baked into the exe vs the latest GitHub release tag**; if you changed code but didn't bump `APP_VERSION` (top of gui.py) before packaging, the exe is still behind and it will keep prompting. Always bump the version and tag when you repackage |
+| X login wall / can't download | Export `twitter_cookies.txt`; X is hosted overseas — set a proxy via the GUI "代理" box or `--proxy http://127.0.0.1:7890` |
+| Instagram download fails | Export `instagram_cookies.txt` (anonymous usually fails); overseas CDN needs a proxy, same as above |
 
 ## ⚠️ Disclaimer
 

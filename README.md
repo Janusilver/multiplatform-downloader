@@ -1,6 +1,6 @@
 # douyin-dl · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印），以及 **B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）。四个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter) / Instagram** 的**无水印**推文、帖子、Reels 与用户主页批量。六个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -25,6 +25,8 @@
 | 小红书 | 图文无水印原图、动图 mp4、视频（网页流可能带小红书号水印） | 建议（匿名可能被风控） |
 | 快手 | 无水印视频、图集 | 建议（匿名可用） |
 | B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
+| X (Twitter) | 推文视频 / 图片 / 用户主页批量，天然无水印 | 建议（匿名可能被登录墙挡住） |
+| Instagram | 帖子图集 / Reels / 用户主页批量，天然无水印 | 建议（匿名大概率失败） |
 
 - ✅ **智能识别链接**：粘贴整段分享文案也能自动提取链接，自动分流到对应平台
 - ✅ **剪贴板识别**：复制链接后程序自动检测，输入框上方出现提示条，点一下即可加入下载队列
@@ -42,17 +44,20 @@
 | 文件 | 作用 |
 |---|---|
 | `release\多平台下载器.exe` | 主程序，双击即用 |
-| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / 快手 Cookie（B站不需要） |
+| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / 快手 / X / Instagram Cookie（B站不需要） |
 | `douyin_cookies.txt` | 抖音 Cookie（必需），放到 exe **旁边** |
 | `xhs_cookies.txt` | 小红书 Cookie（建议），放到 exe 旁边 |
 | `kuaishou_cookies.txt` | 快手 Cookie（建议），放到 exe 旁边 |
+| `twitter_cookies.txt` | X Cookie（建议，匿名可能被登录墙挡住），放到 exe 旁边 |
+| `instagram_cookies.txt` | Instagram Cookie（建议，匿名大概率失败），放到 exe 旁边 |
 
 **首次使用（4 步）**：
 
 1. **装扩展**：Edge 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）→ 开启左下角「开发人员模式」→「加载解压缩的扩展」→ 选 `cookie-export` 文件夹
 2. **导出抖音 Cookie**（必需）：打开 [douyin.com](https://www.douyin.com) 并保持登录 → 点扩展图标 → 导出 → 把 `douyin_cookies.txt` 放到 exe 同目录
 3. **导出小红书 / 快手 Cookie**（建议）：分别打开已登录的 [xiaohongshu.com](https://www.xiaohongshu.com) 和 [kuaishou.com](https://www.kuaishou.com)，各点一次导出，同样放到 exe 同目录
-4. **双击 exe**：粘贴链接点「开始下载」，文件保存到 `downloads\`
+4. **导出 X / Instagram Cookie**（下载 X/IG 时建议）：分别打开已登录的 [x.com](https://x.com) 和 [instagram.com](https://www.instagram.com)，各点一次导出，同样放到 exe 同目录
+5. **双击 exe**：粘贴链接点「开始下载」，文件保存到 `downloads\`
 
 > 💡 只下 B站：一个 Cookie 都不用。只下抖音：第一步 + 第二步即可。小红书 / 快手不导 Cookie 也能用，但被风控的概率更高。
 
@@ -69,11 +74,13 @@ douyin-dl/
 ├── douyin.py            # 抖音核心下载器
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
 ├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
+├── twitter.py           # X 下载器（yt-dlp 封装）
+├── instagram.py         # Instagram 下载器（yt-dlp 封装）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── xhs.bat              # 小红书下载入口（双击运行）
 ├── kuaishou.bat         # 快手下载入口（双击运行）
 ├── bilibili.bat         # B站下载入口（双击运行）
-├── gui.py               # 四平台一体 GUI 入口（PyInstaller 打包用）
+├── gui.py               # 六平台一体 GUI 入口（PyInstaller 打包用）
 ├── build.bat            # 打包入口：装依赖 + 调 build.py
 ├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
 ├── .github/workflows/   # build.yml 自动打包 release；sync-meta.yml 同步 Release 正文
@@ -83,7 +90,7 @@ douyin-dl/
 ├── release/
 │   └── 多平台下载器.exe   # 免环境版成品（clone 后双击即用）
 ├── extensions/
-│   └── cookie-export/   # 浏览器扩展：一键导出三平台 Cookie
+│   └── cookie-export/   # 浏览器扩展：一键导出五平台 Cookie
 ├── douyin_cookies.txt   # 【隐私】抖音 Cookie，已被 .gitignore 排除
 ├── xhs_cookies.txt      # 【隐私】小红书 Cookie，已被 .gitignore 排除
 ├── kuaishou_cookies.txt # 【隐私】快手 Cookie，已被 .gitignore 排除
@@ -168,6 +175,21 @@ pip install requests yt-dlp curl_cffi
 
 1080p / 4K 需要大会员，免费用户自动下载最高可用画质，视频 + 音轨用 ffmpeg 合并为一个 mp4。
 
+## 🐦 X / 📷 Instagram 下载
+
+复用 yt-dlp（与 B站 同一条路）。支持**单条**（推文 / 帖子 / Reels）与**用户主页批量**（默认最近 50 条）。两平台媒体是原始 CDN 直链，**天然无水印**。
+
+```bash
+.venv\Scripts\python.exe twitter.py "https://x.com/<user>/status/<id 隐去>"            # 单条
+.venv\Scripts\python.exe twitter.py "https://x.com/user" --max 10              # 主页批量（最多 10 条）
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/" # 帖子
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/<id 隐去>/"    # Reels
+```
+
+> **前提**：X 现需登录态（匿名可能被登录墙挡住）；IG 需登录 session（匿名大概率失败）——用浏览器扩展导出 `twitter_cookies.txt` / `instagram_cookies.txt` 放脚本 / exe 旁。
+>
+> **代理**：两平台服务器在国外，国内直连不稳。GUI「代理」输入框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`）；国内四平台不受影响，留空即直连。
+
 ## ❓ 常见问题
 
 | 问题 | 解决 |
@@ -180,6 +202,8 @@ pip install requests yt-dlp curl_cffi
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
 | exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + Defender 扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
+| X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |
+| Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上 |
 
 ## ⚠️ 免责声明
 

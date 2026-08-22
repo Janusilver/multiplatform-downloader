@@ -5,6 +5,10 @@ xhs_cookies.txt
 xhs_cookies_*.txt
 kuaishou_cookies.txt
 kuaishou_cookies_*.txt
+twitter_cookies.txt
+twitter_cookies_*.txt
+instagram_cookies.txt
+instagram_cookies_*.txt
 
 # ===== 下载内容 =====
 downloads/
