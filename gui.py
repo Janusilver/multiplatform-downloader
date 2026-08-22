@@ -45,6 +45,8 @@ else:                                          # 开发模式：脚本所在目�
 COOKIE_PATH = BASE / "douyin_cookies.txt"
 XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
 KS_COOKIE_PATH = BASE / "kuaishou_cookies.txt"
+TW_COOKIE_PATH = BASE / "twitter_cookies.txt"
+IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
 HISTORY_MAX = 200
@@ -123,6 +125,20 @@ def classify(text: str) -> tuple[str | None, str | None]:
             return "kuaishou", m.group(0).rstrip("/")
     except ImportError:
         pass
+    try:
+        import twitter
+        m = twitter.URL_RE.search(text)
+        if m:
+            return "twitter", m.group(0).rstrip("/")
+    except ImportError:
+        pass
+    try:
+        import instagram
+        m = instagram.URL_RE.search(text)
+        if m:
+            return "instagram", m.group(0).rstrip("/")
+    except ImportError:
+        pass
     return None, None
 
 
@@ -147,7 +163,7 @@ class App:
         self._last_pct = ""
         self.out_dir = OUT_DIR
         self.history = load_history()
-        root.title(f"抖音 / 小红书 / 快手 / B站 下载器 v{APP_VERSION}")
+        root.title(f"抖音 / 小红书 / 快手 / B站 / X / Instagram 下载器 v{APP_VERSION}")
         root.geometry("580x600")
         root.minsize(480, 440)
 
@@ -167,6 +183,13 @@ class App:
 
         self.btn = ttk.Button(root, text="开始下载", command=self.start)
         self.btn.pack(pady=6)
+
+        prow = ttk.Frame(root)
+        prow.pack(fill="x", padx=10, pady=(0, 4))
+        tk.Label(prow, text="代理（X/IG 建议填写，留空直连）：").pack(side="left")
+        self.proxy_var = tk.StringVar()
+        self.proxy_entry = ttk.Entry(prow, textvariable=self.proxy_var, width=30)
+        self.proxy_entry.pack(side="left", fill="x", expand=True)
 
         drow = ttk.Frame(root)
         drow.pack(fill="x", padx=10)
@@ -217,7 +240,7 @@ class App:
     # ---------- 日志 ----------
     def _welcome(self) -> None:
         self._post("=" * 44)
-        self._post("  抖音 / 小红书 / 快手 / B站 下载器")
+        self._post("  抖音 / 小红书 / 快手 / B站 / X / Instagram 下载器")
         self._post("=" * 44)
         if COOKIE_PATH.exists():
             cookie = douyin.load_cookie_str(str(COOKIE_PATH))
@@ -232,6 +255,14 @@ class App:
             self._post(f"[OK] 已找到快手 Cookie（可选，登录后更稳）")
         else:
             self._post("[!] 未找到 kuaishou_cookies.txt —— 快手匿名可用")
+        if TW_COOKIE_PATH.exists():
+            self._post(f"[OK] 已找到 X Cookie（可选，匿名可能失败）")
+        else:
+            self._post("[!] 未找到 twitter_cookies.txt —— X 匿名可用，可能被登录墙挡住")
+        if IG_COOKIE_PATH.exists():
+            self._post(f"[OK] 已找到 Instagram Cookie（可选，匿名大概率失败）")
+        else:
+            self._post("[!] 未找到 instagram_cookies.txt —— IG 匿名大概率失败")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists() and KS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
@@ -339,7 +370,8 @@ class App:
             platform, url = classify(clip)
             if url:
                 self._pending_clip = url
-                name = {"douyin": "抖音", "xhs": "小红书", "kuaishou": "快手", "bili": "B站"}.get(platform, "分享")
+                name = {"douyin": "抖音", "xhs": "小红书", "kuaishou": "快手", "bili": "B站",
+                        "twitter": "X", "instagram": "Instagram"}.get(platform, "分享")
                 self.clip_label.configure(text=f"📋 检测到{name}分享链接，点击填入")
                 self.clip_bar.pack(fill="x", padx=10, before=self.box)
             else:
@@ -390,6 +422,10 @@ class App:
                         self._run_xhs(url)
                     elif platform == "kuaishou":
                         self._run_kuaishou(url)
+                    elif platform == "twitter":
+                        self._run_twitter(url)
+                    elif platform == "instagram":
+                        self._run_instagram(url)
                     else:
                         self._run_bili(url)
                 except Exception as e:
@@ -449,6 +485,26 @@ class App:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         self._post("  [✓] B站下载完成")
+
+    def _run_twitter(self, url: str) -> None:
+        try:
+            import twitter
+        except ImportError as e:
+            self._post(f"  [!] X 依赖缺失（yt-dlp）：{e}")
+            return
+        cookie = str(TW_COOKIE_PATH) if TW_COOKIE_PATH.exists() else ""
+        proxy = self.proxy_var.get().strip()
+        twitter.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
+
+    def _run_instagram(self, url: str) -> None:
+        try:
+            import instagram
+        except ImportError as e:
+            self._post(f"  [!] Instagram 依赖缺失（yt-dlp）：{e}")
+            return
+        cookie = str(IG_COOKIE_PATH) if IG_COOKIE_PATH.exists() else ""
+        proxy = self.proxy_var.get().strip()
+        instagram.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
 
     def _bili_hook(self, d: dict) -> None:
         if d.get("status") == "downloading":
