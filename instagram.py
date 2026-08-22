@@ -170,16 +170,18 @@ def _download(url: str, dest: Path, kind: str, proxy: str = "") -> tuple[bool, s
     return False, ""
 
 
-def _download_one(item: dict, out_dir: Path, prefix: str = "", proxy: str = "") -> None:
-    """下载一个帖子的全部媒体（图片+视频）。prefix 用于单条命名（作者），主页批量子目录内为空。"""
+def _download_one(item: dict, out_dir: Path, prefix: str = "", proxy: str = "") -> bool:
+    """下载一个帖子的全部媒体（图片+视频）。prefix 用于单条命名（作者），主页批量子目录内为空。
+    至少下到 1 个文件返回 True，无媒体或全部失败返回 False。"""
     media = extract_media(item)
     shortcode = item.get("code") or item.get("pk") or "post"
     if not media:
         print(f"  [!] 帖子 {shortcode} 没有可提取的媒体")
-        return
+        return False
     n_img = sum(1 for k, _ in media if k == "image")
     n_vid = sum(1 for k, _ in media if k == "video")
     print(f"  [*] {shortcode}: {len(media)} 个媒体（{n_img} 图 + {n_vid} 视频）")
+    got = 0
     for idx, (kind, url) in enumerate(media, 1):
         # 不用 Path.with_suffix：作者名含点（如 xx.uyvn）时它会把点后全当扩展名替换，
         # 导致多项目互相覆盖。用字符串拼接，文件名任何位置都能含点。
@@ -191,11 +193,13 @@ def _download_one(item: dict, out_dir: Path, prefix: str = "", proxy: str = "") 
         ext = ".mp4" if kind == "video" else douyin.MIME_EXT.get(ctype, ".jpg")
         os.replace(part, Path(f"{base}{ext}"))
         print(f"      ✓ {idx:02d}{ext}")
+        got += 1
+    return got > 0
 
 
 def process(url: str, out_dir: Path, cookie_path: str | None = None,
-            proxy: str = "", max_items: int = 50) -> None:
-    """下载单条帖子/Reels 或用户主页。out_dir 需已存在。"""
+            proxy: str = "", max_items: int = 50) -> bool:
+    """下载单条帖子/Reels 或用户主页。out_dir 需已存在。至少 1 个文件落盘返回 True。"""
     out_dir.mkdir(parents=True, exist_ok=True)
     if not proxy:
         proxy = douyin.detect_system_proxy()
@@ -205,7 +209,7 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         proxy = "http://" + proxy
     if not (cookie_path and Path(cookie_path).exists()):
         print("  [!] IG 需要登录 Cookie：请用浏览器扩展导出 instagram_cookies.txt 放到脚本目录")
-        return
+        return False
     cookie = douyin.load_cookie_str(cookie_path)
     profile = is_profile(url)
     try:
@@ -216,17 +220,28 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
             print(f"  [*] 共 {len(items)} 条帖子")
             user_dir = out_dir / douyin.sanitize(username)
             user_dir.mkdir(exist_ok=True)
+            ok_all = 0
             for item in items:
-                _download_one(item, user_dir, proxy=proxy)
+                if _download_one(item, user_dir, proxy=proxy):
+                    ok_all += 1
+            if ok_all:
+                print(f"  [✓] 已保存 {ok_all}/{len(items)} 条 → {user_dir}")
+                return True
+            print("  [!] 主页帖子全部下载失败")
+            return False
         else:
             shortcode = url.rstrip("/").rsplit("/", 1)[-1]
             print(f"  [*] 获取帖子数据: {shortcode}")
             item = fetch_media_info(shortcode, cookie, proxy)
             uploader = (item.get("user") or {}).get("username") or ""
-            _download_one(item, out_dir, prefix=douyin.sanitize(uploader) + "_", proxy=proxy)
-        print(f"  [✓] 已保存 → {out_dir}")
+            if _download_one(item, out_dir, prefix=douyin.sanitize(uploader) + "_", proxy=proxy):
+                print(f"  [✓] 已保存 → {out_dir}")
+                return True
+            print(f"  [!] 帖子 {shortcode} 无文件落盘")
+            return False
     except Exception as e:
         print(f"  [!] 下载失败: {e}")
+        return False
 
 
 def main() -> None:

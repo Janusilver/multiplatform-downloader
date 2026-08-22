@@ -50,13 +50,14 @@ def is_profile(url: str) -> bool:
 
 
 def process(url: str, out_dir: Path, cookie_path: str | None = None,
-            proxy: str = "", max_items: int = 50) -> None:
-    """下载单条推文。X 用户主页批量 yt-dlp 不支持，明确提示局限。out_dir 需已存在。"""
+            proxy: str = "", max_items: int = 50) -> bool:
+    """下载单条推文。X 用户主页批量 yt-dlp 不支持，明确提示局限。out_dir 需已存在。
+    成功（有文件落地）返回 True，失败/不支持返回 False。"""
     out_dir.mkdir(parents=True, exist_ok=True)
     if is_profile(url):
         print("  [!] X 主页批量暂不支持：yt-dlp 只能下载单条推文（/status/ID）。")
         print("      请粘贴具体推文链接，例如 https://x.com/用户名/status/12345")
-        return
+        return False
     # 单条推文：作者名_推文ID.ext。不带 playlist_index（单条时它变 NA，污染文件名）
     tmpl = "%(uploader)s_%(id)s.%(ext)s"
     opts: dict = {
@@ -79,9 +80,11 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         print(f"  [✓] 已保存 → {out_dir}")
+        return True
     except yt_dlp.utils.DownloadError as e:
         hint = "" if cookie_path else "（无 Cookie，若失败请导 twitter_cookies.txt 后重试）"
         print(f"  [!] 下载失败{hint}: {str(e).splitlines()[0]}")
+        return False
 
 
 def main() -> None:

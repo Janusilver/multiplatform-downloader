@@ -203,20 +203,20 @@ def download(url: str, dest: Path, label: str = "",
     return False
 
 
-def process(link: str, out_dir: Path, cookie: str) -> None:
+def process(link: str, out_dir: Path, cookie: str) -> bool:
     url = extract_url(link)
     if not url:
         print(f"  [!] 未找到快手链接: {link[:50]}")
-        return
+        return False
     print(f"  [*] 解析: {url}")
     pid = resolve_photo_id(url, cookie)
     if not pid:
         print("  [!] 无法解析 photoId")
-        return
+        return False
     photo, dc = fetch_photo(pid, cookie)
     if not photo:
         print("  [!] 作品数据获取失败（可能被风控/作品已删除）")
-        return
+        return False
 
     caption = photo.get("caption") or ""
     author = photo.get("_authorName") or photo.get("userName") or "未知"
@@ -233,17 +233,23 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
                 (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}.jpg")
                 ok += 1
             time.sleep(0.5)
-        print(f"  [✓] 已保存 {ok}/{len(atlas)} 张 → {sub}")
-        return
+        if ok:
+            print(f"  [✓] 已保存 {ok}/{len(atlas)} 张 → {sub}")
+            return True
+        print(f"  [!] 图集 {len(atlas)} 张全部下载失败")
+        return False
 
     vids = video_urls(photo, dc)
     if not vids:
         print("  [!] 既无图集也无视频地址")
-        return
+        return False
     dest = out_dir / f"{base}.mp4"
     print(f"  [*] 视频: {caption[:40] or '(无标题)'} by {author}")
     if download(vids[0], dest, label="视频"):
         print(f"  [✓] 已保存 → {dest}")
+        return True
+    print("  [!] 视频下载失败")
+    return False
 
 
 def main() -> None:

@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -441,69 +441,74 @@ class App:
         old = sys.stdout
         sys.stdout = _QueueWriter(self.q)
         try:
-            for line in text.splitlines():
-                line = line.strip()
-                if not line:
-                    continue
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            fail = 0
+            for line in lines:
                 self._post(f"\n[*] 处理：{line[:60]}")
                 platform, url = classify(line)
                 if not platform:
                     self._post("  [!] 无法识别链接")
+                    fail += 1
                     continue
-                ok = True
                 try:
                     if platform == "douyin":
-                        self._run_douyin(url)
+                        ok = self._run_douyin(url)
                     elif platform == "xhs":
-                        self._run_xhs(url)
+                        ok = self._run_xhs(url)
                     elif platform == "kuaishou":
-                        self._run_kuaishou(url)
+                        ok = self._run_kuaishou(url)
                     elif platform == "twitter":
-                        self._run_twitter(url)
+                        ok = self._run_twitter(url)
                     elif platform == "instagram":
-                        self._run_instagram(url)
+                        ok = self._run_instagram(url)
                     else:
-                        self._run_bili(url)
+                        ok = self._run_bili(url)
                 except Exception as e:
                     self._post(f"  [!] 出错：{e}")
                     ok = False
                 self._add_history(platform, url, ok)
-            self._post("\n[✓] 全部完成")
+                if not ok:
+                    fail += 1
+            if fail:
+                self._post(f"\n[!] {fail}/{len(lines)} 条失败，见上方出错信息")
+            else:
+                self._post("\n[✓] 全部完成")
         finally:
             sys.stdout = old
             self.q.put(("done", ""))
 
-    def _run_douyin(self, url: str) -> None:
-        cookie = douyin.load_cookie_str(str(COOKIE_PATH))
+    def _run_douyin(self, url: str) -> bool:
+        cookie = (douyin.load_cookie_str(str(COOKIE_PATH))
+                  if COOKIE_PATH.exists() else "")
         if not cookie:
             self._post("  [!] Cookie 为空，跳过（先导出 douyin_cookies.txt）")
-            return
+            return False
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        douyin.process(url, self.out_dir, douyin.make_session(cookie))
+        return douyin.process(url, self.out_dir, douyin.make_session(cookie))
 
-    def _run_xhs(self, url: str) -> None:
+    def _run_xhs(self, url: str) -> bool:
         try:
             import xhs
         except ImportError as e:
             self._post(f"  [!] 小红书依赖缺失（curl_cffi）：{e}")
-            return
+            return False
         cookie = (douyin.load_cookie_str(str(XHS_COOKIE_PATH))
                   if XHS_COOKIE_PATH.exists() else "")
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        xhs.process(url, self.out_dir, cookie)
+        return xhs.process(url, self.out_dir, cookie)
 
-    def _run_kuaishou(self, url: str) -> None:
+    def _run_kuaishou(self, url: str) -> bool:
         try:
             import kuaishou
         except ImportError as e:
             self._post(f"  [!] 快手依赖缺失（curl_cffi）：{e}")
-            return
+            return False
         cookie = (douyin.load_cookie_str(str(KS_COOKIE_PATH))
                   if KS_COOKIE_PATH.exists() else "")
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        kuaishou.process(url, self.out_dir, cookie)
+        return kuaishou.process(url, self.out_dir, cookie)
 
-    def _run_bili(self, url: str) -> None:
+    def _run_bili(self, url: str) -> bool:
         import yt_dlp
         self.out_dir.mkdir(parents=True, exist_ok=True)
         opts = {
@@ -521,26 +526,27 @@ class App:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         self._post("  [✓] B站下载完成")
+        return True
 
-    def _run_twitter(self, url: str) -> None:
+    def _run_twitter(self, url: str) -> bool:
         try:
             import twitter
         except ImportError as e:
             self._post(f"  [!] X 依赖缺失（yt-dlp）：{e}")
-            return
+            return False
         cookie = str(TW_COOKIE_PATH) if TW_COOKIE_PATH.exists() else ""
         proxy = self.proxy_var.get().strip()
-        twitter.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
+        return twitter.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
 
-    def _run_instagram(self, url: str) -> None:
+    def _run_instagram(self, url: str) -> bool:
         try:
             import instagram
         except ImportError as e:
             self._post(f"  [!] Instagram 依赖缺失（yt-dlp）：{e}")
-            return
+            return False
         cookie = str(IG_COOKIE_PATH) if IG_COOKIE_PATH.exists() else ""
         proxy = self.proxy_var.get().strip()
-        instagram.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
+        return instagram.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
 
     def _bili_hook(self, d: dict) -> None:
         if d.get("status") == "downloading":

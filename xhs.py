@@ -194,11 +194,11 @@ def download(url: str, dest: Path, label: str = "",
     return False
 
 
-def process(link: str, out_dir: Path, cookie: str) -> None:
+def process(link: str, out_dir: Path, cookie: str) -> bool:
     url = extract_url(link)
     if not url:
         print(f"  [!] 未找到小红书链接: {link[:50]}")
-        return
+        return False
     print(f"  [*] 解析: {url}")
 
     # 短链先跳转拿最终 URL（含 xsec_token）
@@ -209,19 +209,19 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
             print(f"  [*] 跳转: {url[:80]}")
         except Exception as e:
             print(f"  [!] 短链跳转失败: {e}")
-            return
+            return False
 
     m = ID_RE.search(url)
     if not m:
         print("  [!] 无法识别笔记 ID")
-        return
+        return False
     note_id = m.group(1)
     params = dict(re.findall(r"[?&](xsec_token|xsec_source)=([^&\s\"'<>]+)", url))
     note = fetch_note(note_id, cookie, params.get("xsec_token", ""),
                       params.get("xsec_source", ""))
     if not note:
         print("  [!] 笔记数据获取失败（可能被风控/需登录 Cookie/笔记已删除）")
-        return
+        return False
 
     title = note.get("title") or note.get("desc") or ""
     author = (note.get("user") or {}).get("nickname") or "未知"
@@ -234,13 +234,16 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
         vids = video_urls(note)
         if not vids:
             print("  [!] 未找到视频地址")
-            return
+            return False
         if not (note.get("video") or {}).get("consumer", {}).get("originVideoKey"):
             print("  [!] 该视频无原始文件源，网页流可能带小红书号水印")
         dest = out_dir / f"{base}.mp4"
         print(f"  [*] 视频: {title[:40] or '(无标题)'} by {author}")
         if download(vids[0], dest, label="视频", timeout=(10, 600)):
             print(f"  [✓] 已保存 → {dest}")
+            return True
+        print("  [!] 视频下载失败")
+        return False
     elif imgs:
         sub = out_dir / base
         sub.mkdir(parents=True, exist_ok=True)
@@ -255,9 +258,14 @@ def process(link: str, out_dir: Path, cookie: str) -> None:
                 if download(live, sub / f"{i:02d}.mp4", label=f"动图{i}"):
                     ok += 1
             time.sleep(0.5)
-        print(f"  [✓] 已保存 {ok}/{len(imgs)} 项（动图含 mp4） → {sub}")
+        if ok:
+            print(f"  [✓] 已保存 {ok}/{len(imgs)} 项（动图含 mp4） → {sub}")
+            return True
+        print(f"  [!] 图集 {len(imgs)} 项全部下载失败")
+        return False
     else:
         print("  [!] 既无图集也无视频地址")
+        return False
 
 
 def main() -> None:

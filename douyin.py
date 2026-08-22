@@ -188,16 +188,16 @@ def download(url: str, dest: Path, s: requests.Session, label: str = "",
     return False, ""
 
 
-def process(link: str, out_dir: Path, s: requests.Session) -> None:
+def process(link: str, out_dir: Path, s: requests.Session) -> bool:
     url = extract_url(link)
     if not url:
         print(f"  [!] 未找到抖音链接: {link[:50]}")
-        return
+        return False
     print(f"  [*] 解析: {url}")
     aid = resolve_aweme_id(url, s)
     if not aid:
         print("  [!] 无法解析 aweme_id，链接可能失效或 Cookie 过期")
-        return
+        return False
     detail = fetch_detail(aid, s)
     desc = detail.get("desc", "") or ""
     author = (detail.get("author") or {}).get("nickname", "") or "未知"
@@ -238,14 +238,18 @@ def process(link: str, out_dir: Path, s: requests.Session) -> None:
             if done:
                 ok += 1
             time.sleep(0.5)
-        print(f"  [✓] 已保存 {ok}/{len(images)} 张（动图含 mp4） → {sub}")
+        if ok:
+            print(f"  [✓] 已保存 {ok}/{len(images)} 张（动图含 mp4） → {sub}")
+            return True
+        print(f"  [!] {len(images)} 张图全部下载失败")
+        return False
     else:
         video = detail.get("video") or {}
         play = video.get("play_addr") or {}
         ul = play.get("url_list") or []
         if not ul:
             print("  [!] 既无图集也无视频地址")
-            return
+            return False
         u = ul[0].replace("/playwm/", "/play/")   # 去水印
         dest = out_dir / f"{base}.mp4"
         print(f"  [*] 视频: {desc[:40] or '(无标题)'} by {author}")
@@ -263,6 +267,9 @@ def process(link: str, out_dir: Path, s: requests.Session) -> None:
                 break
         if ok_f:
             print(f"  [✓] 已保存 → {dest}")
+            return True
+        print("  [!] 视频下载失败（主路径与 snssdk 兜底均失败）")
+        return False
 
 
 def main() -> None:
