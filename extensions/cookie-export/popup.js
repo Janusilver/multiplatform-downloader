@@ -1,8 +1,10 @@
-// 多平台 Cookie 导出：抖音 / 小红书 / 快手（Netscape 格式，含 HttpOnly）
+// 多平台 Cookie 导出：抖音 / 小红书 / 快手 / X / Instagram（Netscape 格式，含 HttpOnly）
 const SITES = {
-  'btn-dy':  { domain: '.douyin.com',       file: 'douyin_cookies.txt',  name: '抖音' },
-  'btn-xhs': { domain: '.xiaohongshu.com',  file: 'xhs_cookies.txt',     name: '小红书' },
+  'btn-dy':  { domain: '.douyin.com',       file: 'douyin_cookies.txt',   name: '抖音' },
+  'btn-xhs': { domain: '.xiaohongshu.com',  file: 'xhs_cookies.txt',      name: '小红书' },
   'btn-ks':  { domain: '.kuaishou.com',     file: 'kuaishou_cookies.txt', name: '快手' },
+  'btn-tw':  { domain: '.x.com',            file: 'twitter_cookies.txt',  name: 'X' },
+  'btn-ig':  { domain: '.instagram.com',    file: 'instagram_cookies.txt', name: 'Instagram' },
 };
 
 async function exportSite(btnId) {
