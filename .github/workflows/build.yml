@@ -52,7 +52,14 @@ jobs:
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/多平台下载器.exe
-          generate_release_notes: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # GitHub 上传资产对非 ASCII 文件名会退回 default.exe（中文名存不住），
+          # 重命名为 ASCII 名再上传，资产名固定为 multiplatform-downloader.exe。
+          mv dist/*.exe dist/multiplatform-downloader.exe
+          gh release create "${{ github.ref_name }}" dist/multiplatform-downloader.exe \
+            --generate-notes --repo "${{ github.repository }}" \
+          || gh release upload "${{ github.ref_name }}" dist/multiplatform-downloader.exe \
+            --clobber --repo "${{ github.repository }}"
