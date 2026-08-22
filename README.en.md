@@ -1,11 +1,11 @@
-# douyin-dl · Multi-Platform Watermark-Free Downloader
+# multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
 Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), and **X (Twitter) / Instagram** watermark-free tweets, posts, Reels, and user-profile batches. Six platforms, one window.
 
 > A personal tool for **personal archiving & learning**. Respect creators' copyright — do not redistribute watermark-free content.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/Janusilver/douyin-dl/build.yml?label=build)](https://github.com/Janusilver/douyin-dl/actions)
-[![GitHub stars](https://img.shields.io/github/stars/Janusilver/douyin-dl?style=flat-square)](https://github.com/Janusilver/douyin-dl/stargazers)
+[![Build](https://img.shields.io/github/actions/workflow/status/Janusilver/multiplatform-downloader/build.yml?label=build)](https://github.com/Janusilver/multiplatform-downloader/actions)
+[![GitHub stars](https://img.shields.io/github/stars/Janusilver/multiplatform-downloader?style=flat-square)](https://github.com/Janusilver/multiplatform-downloader/stargazers)
 [![GitHub license](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python)](https://www.python.org/)
 
@@ -70,7 +70,7 @@ For people who don't want Python: **clone or download this repo, then double-cli
 ## 📦 Directory
 
 ```
-douyin-dl/
+multiplatform-downloader/
 ├── douyin.py            # Douyin core downloader
 ├── xhs.py               # Xiaohongshu downloader (curl_cffi Chrome impersonation)
 ├── kuaishou.py          # Kuaishou downloader (__APOLLO_STATE__ parsing)

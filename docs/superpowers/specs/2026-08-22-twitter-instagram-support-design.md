@@ -5,7 +5,8 @@
 
 ## 背景与目标
 
-多平台无水印下载器（douyin-dl）当前支持抖音/小红书/快手（自研解析）+ B站（yt-dlp）。
+多平台无水印下载器（原 douyin-dl，2026-08-22 改名 multiplatform-downloader）当前支持
+抖音/小红书/快手（自研解析）+ B站（yt-dlp）。
 目标：加入 **Twitter/X** 和 **Instagram** 两个平台，支持**单条分享链接**和**用户主页批量**下载，
 并完整集成到 CLI、GUI、exe 打包与公开发布流程。
 

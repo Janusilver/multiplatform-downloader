@@ -1,4 +1,4 @@
-# douyin-dl · 多平台无水印下载器
+# multiplatform-downloader · 多平台无水印下载器
 
 粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter) / Instagram** 的**无水印**推文、帖子、Reels 与用户主页批量。六个平台一个窗口搞定。
 
@@ -6,8 +6,8 @@
 
 **[English](README.en.md)**
 
-[![Build](https://img.shields.io/github/actions/workflow/status/Janusilver/douyin-dl/build.yml?label=build)](https://github.com/Janusilver/douyin-dl/actions)
-[![GitHub stars](https://img.shields.io/github/stars/Janusilver/douyin-dl?style=flat-square)](https://github.com/Janusilver/douyin-dl/stargazers)
+[![Build](https://img.shields.io/github/actions/workflow/status/Janusilver/multiplatform-downloader/build.yml?label=build)](https://github.com/Janusilver/multiplatform-downloader/actions)
+[![GitHub stars](https://img.shields.io/github/stars/Janusilver/multiplatform-downloader?style=flat-square)](https://github.com/Janusilver/multiplatform-downloader/stargazers)
 [![GitHub license](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python)](https://www.python.org/)
 
@@ -70,7 +70,7 @@
 ## 📦 目录结构
 
 ```
-douyin-dl/
+multiplatform-downloader/
 ├── douyin.py            # 抖音核心下载器
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
 ├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
