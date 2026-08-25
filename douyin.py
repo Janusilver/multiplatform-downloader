@@ -20,6 +20,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
 
@@ -37,8 +38,19 @@ URL_RE = re.compile(
     r"|(?:www\.|m\.)?douyin\.com/(?:video|note|slides)/\d+|www\.douyin\.com/\d+)"
 )
 ID_RE = re.compile(r"/(?:video|note|slides)/(\d+)")
+HOSTS = ("douyin.com", "iesdouyin.com")
 MIME_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
             "image/avif": ".avif", "image/gif": ".gif", "image/heic": ".heic"}
+
+
+def host_allowed(url: str, domains: tuple[str, ...]) -> bool:
+    """URL 的 host 是否落在白名单内（含子域）。
+
+    不能用子串判断：`"xhslink.com" in url` 会被 https://evil.com/?x=xhslink.com 骗过，
+    而下游会把登录 Cookie 当 Header 发给该 host。
+    """
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host == d or host.endswith("." + d) for d in domains)
 
 
 def detect_system_proxy() -> str:
@@ -106,7 +118,10 @@ def extract_url(text: str) -> str | None:
     if m:
         return m.group(0).rstrip("/")
     m = re.search(r"https?://[^\s<>\"']+", text)   # 兜底：取第一个链接
-    return m.group(0).rstrip("),。；）") if m else None
+    if not m:
+        return None
+    u = m.group(0).rstrip("),。；）")
+    return u if host_allowed(u, HOSTS) else None   # 站外域名不放行，避免 Cookie 外发
 
 
 def resolve_aweme_id(url: str, s: requests.Session) -> str | None:
@@ -115,7 +130,10 @@ def resolve_aweme_id(url: str, s: requests.Session) -> str | None:
     if m:
         return m.group(1)
     try:
-        r = s.get(url, headers={"User-Agent": UA}, allow_redirects=True, timeout=20)
+        # 短链跳转不需要登录态，且会跨 host（v.douyin.com → iesdouyin.com → douyin.com）；
+        # session 的 Cookie 头不按域隔离，跟着跳到哪发到哪，故显式设 None 摘掉（cookie jar 按域隔离，无需处理）
+        r = s.get(url, headers={"User-Agent": UA, "Cookie": None},
+                  allow_redirects=True, timeout=20)
         m = ID_RE.search(r.url)
         return m.group(1) if m else None
     except requests.RequestException as e:

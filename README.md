@@ -205,6 +205,7 @@ pip install requests yt-dlp curl_cffi
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
 | X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |
 | Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上 |
+| 贴了链接却提示「未找到 XX 链接」 | 出于安全只接受**平台自家域名**（`v.douyin.com` / `xhslink.com` / `v.kuaishou.com` 及各主站域名）。站外链接即使文本里带平台域名关键词也会被拒——这是防止把你的登录 Cookie 发给第三方站点。另外短链跳转全程**不携带 Cookie** |
 
 ## ⚠️ 免责声明
 

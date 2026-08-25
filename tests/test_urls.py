@@ -23,6 +23,10 @@ try:
 except ModuleNotFoundError:
     twitter = None
 
+import douyin
+import kuaishou
+import xhs
+
 
 def check(name: str, fn, cases) -> int:
     failed = 0
@@ -79,6 +83,42 @@ def main() -> int:
             ("https://www.instagram.com/jack", True),
             ("https://www.instagram.com/p/CxAb12345", False),
         ])
+    # 兜底分支的域名白名单：站外域名必须返回 None，否则下游会把登录 Cookie 发给该 host
+    note = "a" * 24                                    # 笔记 ID 形如 24 位十六进制
+    f += check("douyin.extract_url", douyin.extract_url, [
+        ("https://v.douyin.com/abc123/", "https://v.douyin.com/abc123"),
+        ("https://www.douyin.com/video/7123456789012345678",
+         "https://www.douyin.com/video/7123456789012345678"),
+        # 兜底仍放行同域的未覆盖路径
+        ("https://www.douyin.com/user/MS4wLjABAAAA", "https://www.douyin.com/user/MS4wLjABAAAA"),
+        # 站外域名冒充
+        ("https://evil.com/v.douyin.com/xxx", None),
+        ("https://douyin.com.evil.com/video/123", None),
+    ])
+    f += check("xhs.extract_url", xhs.extract_url, [
+        ("https://xhslink.com/a/abc123", "https://xhslink.com/a/abc123"),
+        (f"https://www.xiaohongshu.com/explore/{note}",
+         f"https://www.xiaohongshu.com/explore/{note}"),
+        # 站外域名冒充：CodeQL 告警对应的场景
+        ("https://evil.com/?x=xhslink.com", None),
+        ("https://xhslink.com.evil.com/a", None),
+    ])
+    f += check("kuaishou.extract_url", kuaishou.extract_url, [
+        ("https://v.kuaishou.com/abcdef", "https://v.kuaishou.com/abcdef"),
+        ("https://www.kuaishou.com/short-video/3x7edaa985qmhqy",
+         "https://www.kuaishou.com/short-video/3x7edaa985qmhqy"),
+        # 站外域名冒充
+        ("https://evil.com/#kuaishou.com", None),
+        ("https://kuaishou.com.evil.com/short-video/3x7", None),
+    ])
+    f += check("douyin.host_allowed", lambda u: douyin.host_allowed(u, ("xhslink.com",)), [
+        ("https://xhslink.com/a/1", True),
+        ("https://sub.xhslink.com/a/1", True),
+        ("https://evil.com/?x=xhslink.com", False),
+        ("https://xhslink.com.evil.com/a", False),
+        ("https://evilxhslink.com/a", False),
+        ("not a url", False),
+    ])
     sys.exit(1 if f else 0)
 
 

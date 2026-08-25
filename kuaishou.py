@@ -36,6 +36,7 @@ URL_RE = re.compile(
 )
 ID_RE = re.compile(r"(?:short-video|fw/photo)/([0-9A-Za-z]+)")
 PHOTO_ID_QRY = re.compile(r"[?&]photoId=([0-9A-Za-z]+)")
+HOSTS = ("kuaishou.com", "chenzhongtech.com")
 IIFE_TAIL = (";(function(){var s;(s=document.currentScript||document.scripts["
              "document.scripts.length-1]).parentNode.removeChild(s);}());")
 
@@ -45,7 +46,10 @@ def extract_url(text: str) -> str | None:
     if m:
         return m.group(0).rstrip("/")
     m = re.search(r"https?://[^\s<>\"']+", text)   # 兜底：取第一个链接
-    return m.group(0).rstrip("),。；）") if m else None
+    if not m:
+        return None
+    u = m.group(0).rstrip("),。；）")
+    return u if douyin.host_allowed(u, HOSTS) else None   # 站外域名不放行，避免 Cookie 外发
 
 
 def get(url: str, cookie: str, timeout: int = 25) -> cr.Response:
@@ -64,7 +68,9 @@ def resolve_photo_id(url: str, cookie: str) -> str | None:
     if m:
         return m.group(1)
     try:
-        r = get(url, cookie)
+        # 短链跳转不需要登录态（实测带/不带 Cookie 拿到的 photoId 一致），且跳转会跨 host；
+        # Cookie 头不按域隔离，跟着跳到哪发到哪，故这一步不传 Cookie
+        r = get(url, "")
         final = str(r.url)
         m = ID_RE.search(final) or PHOTO_ID_QRY.search(final)
         if m:

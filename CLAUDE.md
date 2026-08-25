@@ -39,7 +39,8 @@
 - 打包：`build.py` 需 `--collect-all curl_cffi`（否则 exe 里小红书/快手报缺 DLL）；GitHub Actions（`.github/workflows/build.yml`）用 imageio-ffmpeg 提取便携 ffmpeg，push `v*` 标签自动出 Release。
 
 ## 坑
-- **抖音 web 接口签名（2026-08-25 复核更正，签名非必需）**：`aweme/v1/web/aweme/detail` **不需要** `a_bogus`/`X-Bogus`/`msToken` 签名。当天早先收到「status 200 + 空 body」，一度误判为签名加固，于是跑通 douyin-sign（a_bogus）验证——**最终实测：无签名、无 msToken、仅带登录 Cookie，8/8 全成功**（满 55KB 数据）。空 body 是**抖音概率性/临时风控**（短期连续请求触发），不是签名缺失。结论：**带登录 Cookie 即够用，不上签名依赖**；确遇空 body 隔几分钟重试即可（如需绕过可用 douyin-sign 的 a_bogus，可选非必需）。
+- **抖音 web 接口签名（2026-08-25 复核更正，签名非必需）**：`aweme/v1/web/aweme/detail` **不需要** `a_bogus`/`X-Bogus`/`msToken` 签名。当天早先收到「status 200 + 空 body」，一度误判为签名加固，于是跑通 douyin-sign（a_bogus）验证——**最终实测：无签名、无 msToken、仅带登录 Cookie，8/8 全成功**（满 55KB 数据）。空 body 是**抖音概率性/临时风控**（短期连续请求触发），不是签名缺失。结论：**带登录 Cookie 即够用，不上签名依赖**（如需绕过可用 douyin-sign 的 a_bogus，可选非必需）。
+- **空 body 风控要「停手」而不是「重试」**（2026-08-25 晚实测更正）：原先记的「隔几分钟重试即可」**不准确**。当晚为做对照实验密集打了十几次 `detail`，随后连续失败：等 4 分钟、8 分钟、15 分钟重试均为 `status=200 body=0`，累计 27 分钟不恢复；**停掉后台轮询、彻底不发请求之后，下一次请求立刻拿到完整 67916 字节**。判断：每次重试都在重置风控窗口，越试越不通。正确处置是**停止所有请求静置**，别开轮询。诊断时先看**响应头**（`X-Tt-Logid` / `Cookie_ttwidinfo_webid` 等都在，说明链路正常、纯属限流），只看 status/body 长度会误判。
 - **图集水印**：`download_url_list` 是带「抖音号：xxx」水印的高清版（模板含 `~tplv-dy-water-v2:`），`url_list` 是无水印版（`~tplv-dy-aweme-images:q75`，分辨率不变、体积几乎相同）。默认下无水印版。
 - **实况图动图水印**（2026-08-19 实测）：内嵌视频的 `download_addr.url_list[0]` **不保证是 `watermark=0`**，服务端可能把 `watermark=1` 档排在 `[0]`（同一 video_id 下 `watermark=0` → 干净 294KB，`watermark=1` → 带水印 503KB，实测参数交换有效）。下载前必须 `.replace("watermark=1", "watermark=0")` 归一，不能直接取 `url_list[0]`。
 - **实况图判据**：`douyin.py` 图集分支只对 `images[i].live_photo_type==1` / `clip_type==5`（实况图）下内嵌动图 mp4；**不能只看 `video.url_list` 非空**——普通图集作品的 `video.play_addr` 是背景音乐 mp3（非视频），否则会误下 BGM。
@@ -52,6 +53,9 @@
 - **Instagram 必须走代理**：IG CDN 在海外，直连会连接超时 / 429 风控；`--proxy` 或本机开「系统代理」自动读。
 - **X 用户主页批量不支持**：yt-dlp 无主页提取器，只能 `/status/ID` 单条；`is_profile` 检测到主页会明确提示。
 - **Instagram 图集作者名含点**（如 `xx.uyvn`）：不要用 `Path.with_suffix` 命名，会互相覆盖，用字符串拼接（已处理）。
+- **域名判断禁用子串包含**（2026-08-25，CodeQL 告警 `xhs.py:214`）：`"xhslink.com" in url` 会被 `https://evil.com/?x=xhslink.com` 骗过。三个 `extract_url` 的**兜底分支**会返回文本里任意第一个 URL，配上子串判断就等于把登录 Cookie（douyin 是 session 级 `headers["Cookie"]`，xhs/kuaishou 是显式 Cookie 头）发给攻击者的 host——粘一条群里的伪装链接即可触发。现统一走 `douyin.host_allowed(url, HOSTS)`（`urlsplit().hostname` 精确匹配 + 子域），各脚本 `HOSTS` 常量取自各自 `URL_RE` 覆盖的域名。**兜底保留**（仍放行同域的未覆盖路径变体），只挡站外域名。
+- **短链跳转一律不传 Cookie**（2026-08-25，配合上一条）：跳转**真的跨 host**（实测 `v.douyin.com → iesdouyin.com → www.douyin.com`），而 Cookie **头**不按域隔离，跟着跳到哪发到哪（cookie jar 按域隔离，不用管）。三处跳转均改为匿名：`xhs.py` / `kuaishou.py` 的 `get(url, "")`、`douyin.py` 的 `headers={"Cookie": None}`（per-request 设 None 才能摘掉 `s.headers["Cookie"]`，只传 UA 是**合并**不是替换）。实测依据：快手 3 条短链带/不带 Cookie 拿到的 photoId 全一致；**小红书 `xsec_token` 不依赖登录态**——它是短链自带的时效凭证，匿名跳转照样拿得到（这点原先没底，实测推翻了顾虑）。
+- **requests 的 header Cookie 与 cookie jar 是两条独立路径**：jar 非空时**不会**覆盖 `session.headers["Cookie"]`（实测灌入假 ttwid，实际发出的仍是完整 8616 字节登录 Cookie，假值没混进去）。所以匿名跳转导致 jar 少一个 `ttwid` 无影响。排查时别把两者混为一谈。
 - 别二次传播无水印作品，仅个人归档。
 
 ## 测试
@@ -59,7 +63,8 @@
 - `kuaishou.py` 已实测通过（2026-08-15）：真实作品页链接（`short-video/3x7edaa985qmhqy`），匿名与带 Cookie 均成功。**水印排查结论（用户目检确认）**：H264（4.89MB）与 H265（2.93MB）都**没有**水印；曾误判 H264 带水印（实为小红书视频）。已改为按（分辨率,码率）选最佳画质（优先 H264 高码率）。App 接口需签名（`result:50`），未实现。
 - `xhs.py` 已实测通过（2026-08-15，带登录 Cookie）：图文笔记 3/3 原图（走 `fileId` → `sns-img-bd.xhscdn.com`）、视频笔记 mp4（`media.stream.EF4` 最高清）。**视频水印（最终结论）**：网页流（sns-video-v2）带「小红书号」水印；**网页端数据层已彻底不暴露干净源**——8/8 视频笔记的 SSR `video` 只有 `media/mediaV2/image/capa`，无 `consumer.originVideoKey`；真浏览器（playwright + `_webmsxyw` 签名 + 注入 Cookie）调 feed API 能过风控（code 0）但数据空/minimal，也拿不到 originVideoKey（风控还会在 code 0 / code -101 间横跳）。**结论：小红书视频水印在网页接口下无解**（数据层封死，非签名问题），保持页面解析 + 水印提示。实况图（Live Photo）代码已支持（`imageList[].stream.EF4` masterUrl），已实测通过（3 图+3 mp4）。裸 `explore/{id}` 无 xsec 会被风控，需分享链接（带 xsec_token）或恰好出现在首页 feed。playwright 曾用于探索小红书签名（2026-08-15），已卸载，不打包。
 - `instagram.py` / `twitter.py`：**URL 识别单测**（`tests/test_urls.py`，免联网纯 assert）已通过（IG 7 组 / X 9 组）。真实媒体下载**未在本机实测**（需真 cookie + 代理 + 海外网络），代码逻辑按 IG 私有 API / yt-dlp 封装，等链接实测后再补结论。
-- **单测跑法**：`.venv/Scripts/python.exe tests/test_urls.py`（无 pytest 依赖，纯 assert）。
+- **单测跑法**：`.venv/Scripts/python.exe tests/test_urls.py`（无 pytest 依赖，纯 assert）。已覆盖 IG/X/抖音/小红书/快手的 `extract_url` 与 `host_allowed`，含站外域名冒充样本（期望 `None`/`False`），共 35 条。
+- **2026-08-25 域名白名单 + 匿名跳转实测**：白名单三平台端到端全过（抖音图集 13/13、小红书视频、快手视频，`.part`/`.tmp` 零残留）。匿名跳转三平台端到端全过：**快手** `v.kuaishou.com/bg4URK`、**小红书** `xhslink.com/m/...`（4/4）、**抖音** `v.douyin.com/j5POryBzxME`（13 jpg + 1 实况 mp4，与既有记录一致），`.part`/`.tmp` 零残留。过程中抖音一度风控空 body，用对照组排除了代码原因（**完全不跳转直接打 detail 同样空 body**），静置后恢复即通过。
 - **2026-08-25 三条修复（原子下载 + 已存在跳过 + 实况图判据）**：
   - `test_urls.py` 无回归（URL 逻辑未动）；三脚本 `py_compile` 通过。
   - **kuaishou / xhs 已实车验证**：下载成功、`.part` 零残留、重跑 0.6s 跳过且 mtime/size 不变（重复链接不重下）。
