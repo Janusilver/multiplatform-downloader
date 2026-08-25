@@ -175,20 +175,29 @@ def video_urls(note: dict) -> list[str]:
 
 def download(url: str, dest: Path, label: str = "",
              timeout: tuple = (10, 300)) -> bool:
-    """直链下载：只带 UA（CDN 要求），失败重试 3 次。"""
+    """直链下载：只带 UA（CDN 要求），失败重试 3 次。
+    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过。"""
+    part = Path(str(dest) + ".part")
     for attempt in range(3):
         try:
+            if dest.exists() and os.path.getsize(dest) > 0:
+                return True                     # 已存在完整文件，跳过（重复链接不重下）
             r = requests.get(url, headers={"User-Agent": UA}, stream=True,
                              timeout=timeout)
             r.raise_for_status()
-            with open(dest, "wb") as f:
+            with open(part, "wb") as f:
                 for chunk in r.iter_content(1 << 16):
                     if chunk:
                         f.write(chunk)
-            if os.path.getsize(dest) == 0:
+            if os.path.getsize(part) == 0:
                 raise ValueError("空文件（可能被限流）")
+            os.replace(part, dest)
             return True
         except Exception as e:
+            try:
+                os.unlink(part)                 # 清掉半截临时文件
+            except OSError:
+                pass
             print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
             time.sleep(2 * (attempt + 1))
     return False

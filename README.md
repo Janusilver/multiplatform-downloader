@@ -75,7 +75,7 @@ multiplatform-downloader/
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
 ├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
 ├── twitter.py           # X 下载器（yt-dlp 封装）
-├── instagram.py         # Instagram 下载器（yt-dlp 封装）
+├── instagram.py         # Instagram 下载器（自研私有 API，curl_cffi 伪装 Chrome TLS）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── xhs.bat              # 小红书下载入口（双击运行）
 ├── kuaishou.bat         # 快手下载入口（双击运行）

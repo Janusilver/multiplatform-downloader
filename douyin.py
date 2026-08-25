@@ -148,20 +148,29 @@ def best_image_url(im: dict) -> str | None:
 
 def download_bare(url: str, dest: Path, label: str = "",
                   timeout: tuple = (10, 120)) -> tuple[bool, str]:
-    """图片直链专用下载：只带 UA，不带 Cookie/Referer（CDN 防盗链要求）。"""
+    """图片直链专用下载：只带 UA，不带 Cookie/Referer（CDN 防盗链要求）。
+    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过。"""
+    part = Path(str(dest) + ".part")
     for attempt in range(3):
         try:
+            if dest.exists() and os.path.getsize(dest) > 0:
+                return True, ""                 # 已存在完整文件，跳过（重复链接不重下）
             r = requests.get(url, headers={"User-Agent": UA}, stream=True, timeout=timeout)
             r.raise_for_status()
             ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
-            with open(dest, "wb") as f:
+            with open(part, "wb") as f:
                 for chunk in r.iter_content(1 << 16):
                     if chunk:
                         f.write(chunk)
-            if os.path.getsize(dest) == 0:
+            if os.path.getsize(part) == 0:
                 raise ValueError("空文件（可能被限流）")
+            os.replace(part, dest)
             return True, ctype
         except Exception as e:
+            try:
+                os.unlink(part)                 # 清掉半截临时文件
+            except OSError:
+                pass
             print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
             time.sleep(2 * (attempt + 1))
     return False, ""
@@ -169,20 +178,29 @@ def download_bare(url: str, dest: Path, label: str = "",
 
 def download(url: str, dest: Path, s: requests.Session, label: str = "",
              timeout: tuple = (10, 120)) -> tuple[bool, str]:
+    """视频下载：带 session（Cookie/Referer）。写 `.part` 再原子改名，中断不留半截；已存在跳过。"""
+    part = Path(str(dest) + ".part")
     for attempt in range(3):
         try:
+            if dest.exists() and os.path.getsize(dest) > 0:
+                return True, ""                 # 已存在完整文件，跳过
             with s.get(url, headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"},
                        stream=True, timeout=timeout) as r:
                 r.raise_for_status()
                 ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
-                with open(dest, "wb") as f:
+                with open(part, "wb") as f:
                     for chunk in r.iter_content(1 << 16):
                         if chunk:
                             f.write(chunk)
-            if os.path.getsize(dest) == 0:
+            if os.path.getsize(part) == 0:
                 raise ValueError("空文件（可能被限流）")
+            os.replace(part, dest)
             return True, ctype
         except Exception as e:
+            try:
+                os.unlink(part)                 # 清掉半截临时文件
+            except OSError:
+                pass
             print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
             time.sleep(2 * (attempt + 1))
     return False, ""
@@ -211,11 +229,14 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
         ok = 0
         for i, im in enumerate(images, 1):
             done = False
-            # 实况图/动图（Live Photo）：每张图内嵌一个短视频，静态封面 + 动图 mp4 都下
+            # 实况图/动图（Live Photo）：每张图内嵌一个短视频，静态封面 + 动图 mp4 都下。
+            # 用权威字段判断（live_photo_type==1 / clip_type==5），不能只看 video.url_list 非空
+            # ——普通图集作品的 video.play_addr 是背景音乐 mp3（非视频），否则会误下 BGM。
             v = im.get("video") or {}
             v_url = ((v.get("download_addr") or {}).get("url_list") or
                      (v.get("play_addr") or {}).get("url_list") or [])
-            if v_url:
+            is_live = (im.get("live_photo_type") == 1) or (im.get("clip_type") == 5)
+            if is_live and v_url:
                 u = best_image_url(im)                      # 静态封面
                 if u:
                     ok_f, ctype = download_bare(u, sub / f"{i:02d}.tmp", label=f"封面{i}")
