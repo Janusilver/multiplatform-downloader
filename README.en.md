@@ -75,7 +75,7 @@ multiplatform-downloader/
 ├── xhs.py               # Xiaohongshu downloader (curl_cffi Chrome impersonation)
 ├── kuaishou.py          # Kuaishou downloader (__APOLLO_STATE__ parsing)
 ├── twitter.py           # X downloader (yt-dlp wrapper)
-├── instagram.py         # Instagram downloader (yt-dlp wrapper)
+├── instagram.py         # Instagram downloader (self-built private API, curl_cffi Chrome impersonation)
 ├── douyin.bat           # Douyin entry (double-click)
 ├── xhs.bat              # Xiaohongshu entry (double-click)
 ├── kuaishou.bat         # Kuaishou entry (double-click)
