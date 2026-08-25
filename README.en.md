@@ -203,6 +203,7 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Rebuilt after editing code, but startup still prompts to download an update | The check compares the **version baked into the exe vs the latest GitHub release tag**; if you changed code but didn't bump `APP_VERSION` (top of gui.py) before packaging, the exe is still behind and it will keep prompting. Always bump the version and tag when you repackage |
 | X login wall / can't download | Export `twitter_cookies.txt`; X is hosted overseas — set a proxy via the GUI "代理" box or `--proxy http://127.0.0.1:7890` |
 | Instagram download fails | Export `instagram_cookies.txt` (anonymous usually fails); overseas CDN needs a proxy, same as above |
+| Pasted a link but got "no XX link found" | For safety only **first-party platform hosts** are accepted (`v.douyin.com`, `xhslink.com`, `v.kuaishou.com` and the main site domains). An off-site link is rejected even if the text contains a platform domain as a substring — this keeps your login cookie from being sent to a third-party host. Short-link redirects also carry **no cookie** |
 
 ## ⚠️ Disclaimer
 

@@ -36,6 +36,7 @@ URL_RE = re.compile(
     r"|(?:www\.)?xiaohongshu\.com/user/profile/[0-9a-z]+/[0-9a-f]{20,}\S*)"
 )
 ID_RE = re.compile(r"/(?:explore|item|profile/[0-9a-z]+)/([0-9a-f]{20,})")
+HOSTS = ("xhslink.com", "xiaohongshu.com")
 
 
 def extract_url(text: str) -> str | None:
@@ -43,7 +44,10 @@ def extract_url(text: str) -> str | None:
     if m:
         return m.group(0).rstrip("/")
     m = re.search(r"https?://[^\s<>\"']+", text)   # 兜底：取第一个链接
-    return m.group(0).rstrip("),。；）") if m else None
+    if not m:
+        return None
+    u = m.group(0).rstrip("),。；）")
+    return u if douyin.host_allowed(u, HOSTS) else None   # 站外域名不放行，避免 Cookie 外发
 
 
 def get(url: str, cookie: str, timeout: int = 25) -> cr.Response:
@@ -211,9 +215,12 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
     print(f"  [*] 解析: {url}")
 
     # 短链先跳转拿最终 URL（含 xsec_token）
-    if "xhslink.com" in url:
+    if douyin.host_allowed(url, ("xhslink.com",)):
         try:
-            r = get(url, cookie)
+            # 短链跳转不传 Cookie：xsec_token 是短链自带的时效凭证，不依赖登录态
+            # （实测带/不带 Cookie 拿到的 noteID 与 token 一致）；且跳转会跨 host，
+            # Cookie 头不按域隔离，跟着跳到哪发到哪。
+            r = get(url, "")
             url = str(r.url)
             print(f"  [*] 跳转: {url[:80]}")
         except Exception as e:
