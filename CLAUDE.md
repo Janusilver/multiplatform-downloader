@@ -27,7 +27,7 @@
 
 ## 实现要点（改前先读）
 - `douyin.py`：短链→aweme_id→`aweme/v1/web/aweme/detail` API（带 Cookie，**无需签名**）→ 图集走 `url_list`（**无水印** jpeg，分辨率不变；`download_url_list` 带作者「抖音号」水印，已弃用），视频走 `video.play_addr.url_list` 去 `playwm`，**失败时用 snssdk 直链兜底**（`play_addr.uri` 即 video_id：`https://aweme.snssdk.com/aweme/v1/play/?video_id={uri}&ratio=1080p&line=0`，2026-08-15 新增，纯增量未单独实测）。
-- **图片 CDN 防盗链：下载图片只能带 UA，不能带 Cookie/Referer**（否则 403）。`download_bare()` 处理。
+- **图片 CDN 防盗链：下载图片只能带 UA，不能带 Cookie/Referer**（否则 403）。`download()` 处理（douyin.py 的通用下载函数，xhs/kuaishou 复用；带 session / 自定义 headers 时供视频等场景用）。
 - 视频下载走带 session 的 `download()`，已实测（`playwm`→`play` 去水印成功）。
 - `xhs.py`：链接→笔记 ID→curl_cffi GET `explore/{id}?xsec_token=...&xsec_source=...`（分享链接跳转后自带 xsec；裸 `explore/{id}` 无 xsec 会被风控 302 到 404/sec 页，会尝试从首页 feed 借 xsecToken）→ 解析 `window.__INITIAL_STATE__` 的 `note.noteDetailMap[id].note`。**`__INITIAL_STATE__` 混有 JS 字面量**（`undefined`、`new Map([])`），`json.loads` 前必须 `clean_js()` 清洗。**原图**：`imageList[].fileId` → `https://sns-img-bd.xhscdn.com/{fileId}`（无水印原图；旧字段 urlDefault 是 webp 压缩预览，直接拼会 404）；**实况图**：`imageList[].stream.EF4[0].masterUrl`；**视频**：优先 `video.consumer.originVideoKey`（原始无水印），退回 `video.media.stream` 的 EF4/EF5/EF7/EF6/h264/h265 各流 masterUrl（列表升序，取最后最高清）。**视频笔记判断**：`note.type=="video"` 优先于 imageList（视频笔记的 imageList 有 1~3 张封面，不能当图集下）。CDN 下载只带 UA（`download()`）。
 - `kuaishou.py`：链接→photoId（短链跳转后 URL/query 里取）→ curl_cffi GET `short-video/{id}` → 解析 `window.__APOLLO_STATE__`（JSON 尾部有 IIFE，需剥掉 `;(function(){var s;...}());`）的 `defaultClient["VisionVideoDetailPhoto:{id}"]`。**水印结论（2026-08-15 实测+用户目检）**：快手网页的 H264（`photoUrl`/`manifest`，upic 路径）与 H265（`manifestH265`/`photoH265Url`，bs2 路径）**都不带平台水印**。**选档策略**：`video_urls()` 收集 H264+H265 全部候选（分辨率、码率），按（height, avgBitrate）降序取第一个=最佳画质（实测同 720p 时 H264 3.4Mbps 优于 H265 2Mbps）。manifest 是 Apollo 引用（`{"type":"id","id":"..."}`），必须用 `resolve_ref()` 递归到 `defaultClient` 取真实 `url`（`backupUrl` 是 `{"type":"json","json":[...]}`）。**图集**：`ext_params.atlas`（JSON 字符串/列表）里的 cdnUrls。作者昵称从 `VisionVideoDetailAuthor:{uid}` 取。CDN 下载要带 `Referer: https://www.kuaishou.com/`。App 接口（`v.m.chenzhongtech.com/rest/wd/photo/info`）2026-08 起需要签名（`result:50 签名验证失败`），未实现。
@@ -48,7 +48,7 @@
 - **快手 `__APOLLO_STATE__` 有 IIFE 尾巴**，必须替换掉才能 `json.loads`。
 - Cookie 过期（几周）：重新打开对应站点点扩展导出，覆盖对应 cookies.txt。
 - 私密/已删除/强制登录的作品解析不到。
-- **下载原子化**（2026-08-25）：三个平台的下载函数（douyin/xhs/kuaishou 的 `download()`/`download_bare()`）都写临时文件 `<dest>.part` 成功后 `os.replace` 原子改名，中断不留半截成品（旧版直写最终名，中断留半截 mp4 且 `getsize==0` 拦不住）。
+- **下载原子化**（2026-08-25；2026-08-28 三份拷贝合并为 douyin.py 的通用 `download()`，xhs/kuaishou 删本地版改复用，返回统一为 `(bool, Content-Type)`）：写临时文件 `<dest>.part` 成功后 `os.replace` 原子改名，中断不留半截成品（旧版直写最终名，中断留半截 mp4 且 `getsize==0` 拦不住）。
 - **已存在跳过**：目标文件已存在且非空则跳过（重复链接不重下）。只对**视频**（下到最终名）真正生效；图片走 `.tmp` 中转、`dest` 是临时文件，跳过判断天然不触发（图片重下会覆盖，代价低）。`twitter.py` 用 yt-dlp `nooverwrites` 本就是同行为。
 - **Instagram 必须走代理**：IG CDN 在海外，直连会连接超时 / 429 风控；`--proxy` 或本机开「系统代理」自动读。
 - **X 用户主页批量不支持**：yt-dlp 无主页提取器，只能 `/status/ID` 单条；`is_profile` 检测到主页会明确提示。
@@ -74,3 +74,6 @@
     - 古早蓝裙（9 张）：**9 jpg + 0 mp4**——**普通图集不误下背景音乐**，判据正确。
     - 全程 `.part`/`.tmp` **零残留**。判据：`is_live` 用 `live_photo_type==1`/`clip_type==5` 权威字段。
 - 打包：本地 PyInstaller 实测通过（55.8MB，curl_cffi 已进包）。
+
+## 跨助手同步（Claude Code ↔ ZCode）
+- 修改本文件里的规则/约定时，必须同步更新对方工具的对应文件：ZCode 项目级 `AGENTS.md`（若不存在则提醒用户是否共建，别静默只改一边）——两端是一份内容的两个载体，只改一边必分叉。
