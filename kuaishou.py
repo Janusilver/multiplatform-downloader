@@ -17,16 +17,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
 from pathlib import Path
 
-import requests
 from curl_cffi import requests as cr
 
-import douyin  # 复用 UA / load_cookie_str / sanitize
+import douyin  # 复用 UA / host_allowed / load_cookie_str / sanitize / download
 
 UA = douyin.UA
 URL_RE = re.compile(
@@ -187,37 +185,6 @@ def atlas_urls(photo: dict) -> list[str]:
     return out
 
 
-def download(url: str, dest: Path, label: str = "",
-             timeout: tuple = (10, 600)) -> bool:
-    """直链下载：UA + Referer（快手 CDN 校验），失败重试 3 次。
-    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过。"""
-    part = Path(str(dest) + ".part")
-    for attempt in range(3):
-        try:
-            if dest.exists() and os.path.getsize(dest) > 0:
-                return True                     # 已存在完整文件，跳过（重复链接不重下）
-            r = requests.get(url, headers={"User-Agent": UA,
-                                           "Referer": "https://www.kuaishou.com/"},
-                             stream=True, timeout=timeout)
-            r.raise_for_status()
-            with open(part, "wb") as f:
-                for chunk in r.iter_content(1 << 16):
-                    if chunk:
-                        f.write(chunk)
-            if os.path.getsize(part) == 0:
-                raise ValueError("空文件（可能被限流）")
-            os.replace(part, dest)
-            return True
-        except Exception as e:
-            try:
-                os.unlink(part)                 # 清掉半截临时文件
-            except OSError:
-                pass
-            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
-            time.sleep(2 * (attempt + 1))
-    return False
-
-
 def process(link: str, out_dir: Path, cookie: str) -> bool:
     url = extract_url(link)
     if not url:
@@ -244,7 +211,11 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
         sub.mkdir(parents=True, exist_ok=True)
         ok = 0
         for i, u in enumerate(atlas, 1):
-            if download(u, sub / f"{i:02d}.tmp", label=f"图片{i}"):
+            done, _ = douyin.download(u, sub / f"{i:02d}.tmp", label=f"图片{i}",
+                                      headers={"User-Agent": UA,
+                                               "Referer": "https://www.kuaishou.com/"},
+                                      timeout=(10, 600))
+            if done:
                 (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}.jpg")
                 ok += 1
             time.sleep(0.5)
@@ -260,7 +231,10 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
         return False
     dest = out_dir / f"{base}.mp4"
     print(f"  [*] 视频: {caption[:40] or '(无标题)'} by {author}")
-    if download(vids[0], dest, label="视频"):
+    done, _ = douyin.download(vids[0], dest, label="视频", timeout=(10, 600),
+                              headers={"User-Agent": UA,
+                                       "Referer": "https://www.kuaishou.com/"})
+    if done:
         print(f"  [✓] 已保存 → {dest}")
         return True
     print("  [!] 视频下载失败")

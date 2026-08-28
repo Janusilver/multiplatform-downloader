@@ -11,6 +11,9 @@
   python douyin.py links.txt                           # 批量（每行一条）
   python douyin.py "链接" -o 保存目录                   # 指定目录
 Cookie 失效时重新用浏览器扩展导出 douyin_cookies.txt 即可。
+
+本模块同时是共享工具库：xhs / kuaishou / instagram 复用
+UA / host_allowed / load_cookie_str / sanitize / MIME_EXT / download。
 """
 from __future__ import annotations
 
@@ -164,46 +167,25 @@ def best_image_url(im: dict) -> str | None:
     return ul[0] if ul else None
 
 
-def download_bare(url: str, dest: Path, label: str = "",
-                  timeout: tuple = (10, 120)) -> tuple[bool, str]:
-    """图片直链专用下载：只带 UA，不带 Cookie/Referer（CDN 防盗链要求）。
-    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过。"""
-    part = Path(str(dest) + ".part")
-    for attempt in range(3):
-        try:
-            if dest.exists() and os.path.getsize(dest) > 0:
-                return True, ""                 # 已存在完整文件，跳过（重复链接不重下）
-            r = requests.get(url, headers={"User-Agent": UA}, stream=True, timeout=timeout)
-            r.raise_for_status()
-            ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
-            with open(part, "wb") as f:
-                for chunk in r.iter_content(1 << 16):
-                    if chunk:
-                        f.write(chunk)
-            if os.path.getsize(part) == 0:
-                raise ValueError("空文件（可能被限流）")
-            os.replace(part, dest)
-            return True, ctype
-        except Exception as e:
-            try:
-                os.unlink(part)                 # 清掉半截临时文件
-            except OSError:
-                pass
-            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
-            time.sleep(2 * (attempt + 1))
-    return False, ""
-
-
-def download(url: str, dest: Path, s: requests.Session, label: str = "",
-             timeout: tuple = (10, 120)) -> tuple[bool, str]:
-    """视频下载：带 session（Cookie/Referer）。写 `.part` 再原子改名，中断不留半截；已存在跳过。"""
+def download(url: str, dest: Path, label: str = "",
+             timeout: tuple = (10, 120), headers: dict | None = None,
+             session: requests.Session | None = None) -> tuple[bool, str]:
+    """通用直链下载（douyin / xhs / kuaishou 共用）。
+    headers 不传默认只带 UA——多数图片 CDN 防盗链要求：不能带 Cookie/Referer，否则 403；
+    传 session 时走 session.get（带 Cookie/Referer，视频下载用）。
+    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过
+    （重复链接不重下）；失败重试 3 次。返回 (是否成功, Content-Type)。"""
     part = Path(str(dest) + ".part")
     for attempt in range(3):
         try:
             if dest.exists() and os.path.getsize(dest) > 0:
                 return True, ""                 # 已存在完整文件，跳过
-            with s.get(url, headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"},
-                       stream=True, timeout=timeout) as r:
+            if session is not None:
+                cm = session.get(url, headers=headers, stream=True, timeout=timeout)
+            else:
+                cm = requests.get(url, headers=headers or {"User-Agent": UA},
+                                  stream=True, timeout=timeout)
+            with cm as r:
                 r.raise_for_status()
                 ctype = r.headers.get("Content-Type", "").split(";")[0].lower()
                 with open(part, "wb") as f:
@@ -257,19 +239,20 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
             if is_live and v_url:
                 u = best_image_url(im)                      # 静态封面
                 if u:
-                    ok_f, ctype = download_bare(u, sub / f"{i:02d}.tmp", label=f"封面{i}")
+                    ok_f, ctype = download(u, sub / f"{i:02d}.tmp", label=f"封面{i}")
                     if ok_f:
                         ext = MIME_EXT.get(ctype, ".jpg")
                         (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
                         done = True
                 u = v_url[0].replace("watermark=1", "watermark=0")  # url_list[0] 可能排到带水印档，强制归一
-                ok_f, _ = download(u, sub / f"{i:02d}.mp4", s, label=f"动图{i}")
+                ok_f, _ = download(u, sub / f"{i:02d}.mp4", label=f"动图{i}", session=s,
+                                   headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"})
                 if ok_f:
                     done = True
             else:
                 u = best_image_url(im)
                 if u:
-                    ok_f, ctype = download_bare(u, sub / f"{i:02d}.tmp", label=f"图片{i}")
+                    ok_f, ctype = download(u, sub / f"{i:02d}.tmp", label=f"图片{i}")
                     if ok_f:
                         ext = MIME_EXT.get(ctype, ".jpg")
                         (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
@@ -301,7 +284,8 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
                 f"?video_id={vid}&ratio=1080p&line=0")
         ok_f = False
         for cand in candidates:
-            ok_f, _ = download(cand, dest, s, label="视频", timeout=(10, 600))
+            ok_f, _ = download(cand, dest, label="视频", timeout=(10, 600), session=s,
+                               headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"})
             if ok_f:
                 break
         if ok_f:

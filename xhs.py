@@ -18,16 +18,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
 from pathlib import Path
 
-import requests
 from curl_cffi import requests as cr
 
-import douyin  # 复用 UA / load_cookie_str / sanitize
+import douyin  # 复用 UA / host_allowed / load_cookie_str / sanitize / download
 
 UA = douyin.UA
 URL_RE = re.compile(
@@ -177,36 +175,6 @@ def video_urls(note: dict) -> list[str]:
     return urls
 
 
-def download(url: str, dest: Path, label: str = "",
-             timeout: tuple = (10, 300)) -> bool:
-    """直链下载：只带 UA（CDN 要求），失败重试 3 次。
-    写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过。"""
-    part = Path(str(dest) + ".part")
-    for attempt in range(3):
-        try:
-            if dest.exists() and os.path.getsize(dest) > 0:
-                return True                     # 已存在完整文件，跳过（重复链接不重下）
-            r = requests.get(url, headers={"User-Agent": UA}, stream=True,
-                             timeout=timeout)
-            r.raise_for_status()
-            with open(part, "wb") as f:
-                for chunk in r.iter_content(1 << 16):
-                    if chunk:
-                        f.write(chunk)
-            if os.path.getsize(part) == 0:
-                raise ValueError("空文件（可能被限流）")
-            os.replace(part, dest)
-            return True
-        except Exception as e:
-            try:
-                os.unlink(part)                 # 清掉半截临时文件
-            except OSError:
-                pass
-            print(f"  [!] {label} 第{attempt + 1}次下载失败: {e}")
-            time.sleep(2 * (attempt + 1))
-    return False
-
-
 def process(link: str, out_dir: Path, cookie: str) -> bool:
     url = extract_url(link)
     if not url:
@@ -255,7 +223,8 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
             print("  [!] 该视频无原始文件源，网页流可能带小红书号水印")
         dest = out_dir / f"{base}.mp4"
         print(f"  [*] 视频: {title[:40] or '(无标题)'} by {author}")
-        if download(vids[0], dest, label="视频", timeout=(10, 600)):
+        done, _ = douyin.download(vids[0], dest, label="视频", timeout=(10, 600))
+        if done:
             print(f"  [✓] 已保存 → {dest}")
             return True
         print("  [!] 视频下载失败")
@@ -267,11 +236,15 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
         for i, (u, live) in enumerate(imgs, 1):
             if u:
                 ext = ".jpg"
-                if download(u, sub / f"{i:02d}.tmp", label=f"图片{i}"):
+                done, _ = douyin.download(u, sub / f"{i:02d}.tmp", label=f"图片{i}",
+                                          timeout=(10, 300))
+                if done:
                     (sub / f"{i:02d}.tmp").replace(sub / f"{i:02d}{ext}")
                     ok += 1
             if live:  # 动图（Live Photo）附带的短视频
-                if download(live, sub / f"{i:02d}.mp4", label=f"动图{i}"):
+                done, _ = douyin.download(live, sub / f"{i:02d}.mp4", label=f"动图{i}",
+                                          timeout=(10, 300))
+                if done:
                     ok += 1
             time.sleep(0.5)
         if ok:
