@@ -56,7 +56,12 @@
 - **域名判断禁用子串包含**（2026-08-25，CodeQL 告警 `xhs.py:214`）：`"xhslink.com" in url` 会被 `https://evil.com/?x=xhslink.com` 骗过。三个 `extract_url` 的**兜底分支**会返回文本里任意第一个 URL，配上子串判断就等于把登录 Cookie（douyin 是 session 级 `headers["Cookie"]`，xhs/kuaishou 是显式 Cookie 头）发给攻击者的 host——粘一条群里的伪装链接即可触发。现统一走 `douyin.host_allowed(url, HOSTS)`（`urlsplit().hostname` 精确匹配 + 子域），各脚本 `HOSTS` 常量取自各自 `URL_RE` 覆盖的域名。**兜底保留**（仍放行同域的未覆盖路径变体），只挡站外域名。
 - **短链跳转一律不传 Cookie**（2026-08-25，配合上一条）：跳转**真的跨 host**（实测 `v.douyin.com → iesdouyin.com → www.douyin.com`），而 Cookie **头**不按域隔离，跟着跳到哪发到哪（cookie jar 按域隔离，不用管）。三处跳转均改为匿名：`xhs.py` / `kuaishou.py` 的 `get(url, "")`、`douyin.py` 的 `headers={"Cookie": None}`（per-request 设 None 才能摘掉 `s.headers["Cookie"]`，只传 UA 是**合并**不是替换）。实测依据：快手 3 条短链带/不带 Cookie 拿到的 photoId 全一致；**小红书 `xsec_token` 不依赖登录态**——它是短链自带的时效凭证，匿名跳转照样拿得到（这点原先没底，实测推翻了顾虑）。
 - **requests 的 header Cookie 与 cookie jar 是两条独立路径**：jar 非空时**不会**覆盖 `session.headers["Cookie"]`（实测灌入假 ttwid，实际发出的仍是完整 8616 字节登录 Cookie，假值没混进去）。所以匿名跳转导致 jar 少一个 `ttwid` 无影响。排查时别把两者混为一谈。
+- **抖音「动态」(story) 作品**（2026-09-05 实测）：`aweme/v1/web/aweme/detail` 返回 `aweme_detail:null` + `filter_reason:"story_25_filter"` —— 内容被 web 接口**过滤**，cookie-only 拿不到数据。老接口全废：`iesdouyin.com/web/api/v2/aweme/iteminfo` → `status_code:11110 encrypt_data_miss`（要签名）、`aweme/v1/web/iteminfo` 与 `aweme/v1/web/story/detail` → `Unsupported path(Janus)`；`iesdouyin.com/share/video/{id}` 分页是 2397 字节 SPA 壳。结论：**「动态」在 cookie-only 下无解**，a_bogus（纯 Python 版 `mafqla/douyin-api` 未集成、未验证能否绕过 story 过滤）。遇到 `story_25_filter` 别当成风控重试，直接报「动态内容暂不支持」。
+- **抖音风控两种形态，别混淆**：① **403 `ArgusSecurityPlugin Uifid Not Found`**（短期连续请求触发，概率性、整体升降级）；② **`status 200` + `aweme_detail` 空（空 body）**。两者同源＝连续请求喂出来的概率性风控，处置都是**停手静置**、**别重试**。cookie 含 `UIFID/ttwid/s_v_web_id` 不代表能绕过。GUI `_run` 处理多条链接已在链接间加 `time.sleep(2)`（同 CLI `main()`），否则背靠背打 detail 必触发（2026-09-05 实测，图集链接新鲜会话首请求下 2/2，连续探测后同一链接变 Argus 403）。
+- **GUI 剪贴板识别已改为遍历全部链接**（2026-09-05）：原先 `classify()` 用 `.search()` 只取第一个 URL，剪贴板含多条时只认首条。现 `classify_all()` 用各平台 `URL_RE.finditer` 全量遍历、按出现顺序去重，`_pending_clip` 存列表、点击全部填入。单条处理仍走 `classify()`。
+- **`download()` 的 timeout 元组里「较小值」才是实际 socket 超时**（2026-11-30 实测，反直觉）：`timeout=(10, 120)` 下载抖音 CDN（HTTPS）时读超时实际按 **10s** 生效，报错文案也写 `Read timed out. (read timeout=10)`（不是 read 的 120）。三组端到端对照：`(10, 0.05)` → 0.05s 断、报 0.05；`(0.05, 120)` → 0.05s 断、报 0.05（read=120 完全没参与）。本地 HTTP 对照（302 跳转 / header 延迟 / chunked / 并发与串行）**全都复现不出**——本地永远按 read 值生效，只有真实 CDN 上表现为取值较小者。**含义：想放宽读超时不能只调第二个值，两个值都要给足**（现动图 `(30, 120)`、视频 `(30, 600)`）。耗时基线：单图 0.2~1s、350KB 动图 0.6~1s、4.3MB 视频 ≈2.7s。
 - 别二次传播无水印作品，仅个人归档。
+- **测试/调试产物用完即清**（2026-11-30 用户约定）：实测跑出来的临时链接文件（`_test_*.txt`）与专用输出目录（`downloads/_test_*`）验证完立即删除，不留残留；用户说「没用的都删掉」时同类历史测试产物一并清理，走**回收站**（可逆）而非永久删除。`downloads/` 只放用户真正要留存的作品。
 
 ## 测试
 - `douyin.py` 已用真实链接实测通过：图集（13/13 原图）、实况图动图（4/4 mp4）、视频（无水印 mp4）。
@@ -76,4 +81,4 @@
 - 打包：本地 PyInstaller 实测通过（55.8MB，curl_cffi 已进包）。
 
 ## 跨助手同步（Claude Code ↔ ZCode）
-- 修改本文件里的规则/约定时，必须同步更新对方工具的对应文件：ZCode 项目级 `AGENTS.md`（若不存在则提醒用户是否共建，别静默只改一边）——两端是一份内容的两个载体，只改一边必分叉。
+- 本目录下 `CLAUDE.md` 与 `AGENTS.md` 内容完全相同，分别是 Claude Code 与 ZCode 的载体；改任一份都必须同步覆盖另一份（`Copy-Item CLAUDE.md AGENTS.md -Force`），只改一边必分叉。
