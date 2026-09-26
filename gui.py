@@ -14,6 +14,7 @@ import queue
 import re
 import sys
 import threading
+import time
 import tkinter as tk
 import webbrowser
 from datetime import datetime
@@ -107,6 +108,15 @@ def version_gt(a: str, b: str) -> bool:
     return pa > pb
 
 
+def _normalize_bili(raw: str) -> str:
+    """把 B站 链接补成完整 http URL（裸 BV/av 号、裸 b23.tv 短链）。"""
+    if raw.startswith(("BV", "av")):
+        return f"https://www.bilibili.com/video/{raw}"
+    if not raw.startswith("http"):
+        return f"https://{raw}"
+    return raw
+
+
 def classify(text: str) -> tuple[str | None, str | None]:
     """识别链接属于哪个平台，返回 (平台, 处理用URL)；无法识别返回 (None, None)。"""
     m = douyin.URL_RE.search(text)
@@ -114,12 +124,7 @@ def classify(text: str) -> tuple[str | None, str | None]:
         return "douyin", m.group(0).rstrip("/")
     m = BILI_RE.search(text)
     if m:
-        raw = m.group(0).rstrip("/")
-        if raw.startswith(("BV", "av")):               # 裸 BV/av 号补全
-            raw = f"https://www.bilibili.com/video/{raw}"
-        elif not raw.startswith("http"):               # 裸 b23.tv 短链补全
-            raw = f"https://{raw}"
-        return "bili", raw
+        return "bili", _normalize_bili(m.group(0).rstrip("/"))
     try:
         import xhs
         m = xhs.URL_RE.search(text)
@@ -149,6 +154,32 @@ def classify(text: str) -> tuple[str | None, str | None]:
     except ImportError:
         pass
     return None, None
+
+
+def classify_all(text: str) -> list[tuple[str, str]]:
+    """识别文本里所有分享链接（跨平台），按出现顺序返回 [(平台, URL), ...]，去重。
+    classify 只取第一个匹配，剪贴板里常含多条链接，这里用 finditer 全量遍历。"""
+    pats: list[tuple[str, object]] = [("douyin", douyin.URL_RE), ("bili", BILI_RE)]
+    for mod_name in ("xhs", "kuaishou", "twitter", "instagram"):
+        try:
+            pats.append((mod_name, __import__(mod_name).URL_RE))
+        except ImportError:
+            continue
+    found: list[tuple[int, str, str]] = []
+    for platform, pat in pats:
+        for m in pat.finditer(text):
+            url = m.group(0).rstrip("/")
+            if platform == "bili":
+                url = _normalize_bili(url)
+            found.append((m.start(), platform, url))
+    found.sort(key=lambda t: t[0])                       # 按在文本里的位置排序，保持原顺序
+    out: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for _, platform, url in found:
+        if (platform, url) not in seen:
+            seen.add((platform, url))
+            out.append((platform, url))
+    return out
 
 
 class _QueueWriter:
@@ -399,12 +430,10 @@ class App:
             clip = ""
         if clip and clip != self._last_clip:
             self._last_clip = clip
-            platform, url = classify(clip)
-            if url:
-                self._pending_clip = url
-                name = {"douyin": "抖音", "xhs": "小红书", "kuaishou": "快手", "bili": "B站",
-                        "twitter": "X", "instagram": "Instagram"}.get(platform, "分享")
-                self.clip_label.configure(text=f"📋 检测到{name}分享链接，点击填入")
+            urls = classify_all(clip)                    # 遍历全部链接，不只取第一个
+            if urls:
+                self._pending_clip = urls
+                self.clip_label.configure(text=f"📋 检测到 {len(urls)} 条分享链接，点击填入")
                 self.clip_bar.pack(fill="x", padx=10, before=self.box)
             else:
                 self._pending_clip = None
@@ -412,17 +441,18 @@ class App:
         self.root.after(500, self._poll_clipboard)
 
     def _use_clip(self) -> None:
-        """点击提示条：把识别到的链接追加进输入框。"""
-        url = self._pending_clip
-        if not url:
+        """点击提示条：把识别到的所有链接追加进输入框。"""
+        urls = self._pending_clip
+        if not urls:
             self.clip_bar.pack_forget()
             return
         cur = self.input.get("1.0", "end").strip()
+        joined = "\n".join(u for _, u in urls)
         self.input.delete("1.0", "end")
-        self.input.insert("1.0", (cur + "\n" + url).strip())
+        self.input.insert("1.0", (cur + "\n" + joined).strip())
         self._pending_clip = None
         self.clip_bar.pack_forget()
-        self._post(f"[+] 已加入链接：{url[:60]}")
+        self._post(f"[+] 已加入 {len(urls)} 条链接")
 
     # ---------- 下载 ----------
     def start(self) -> None:
@@ -439,7 +469,7 @@ class App:
         try:
             lines = [l.strip() for l in text.splitlines() if l.strip()]
             fail = 0
-            for line in lines:
+            for i, line in enumerate(lines):
                 self._post(f"\n[*] 处理：{line[:60]}")
                 platform, url = classify(line)
                 if not platform:
@@ -465,6 +495,8 @@ class App:
                 self._add_history(platform, url, ok)
                 if not ok:
                     fail += 1
+                if i < len(lines) - 1:
+                    time.sleep(2)    # 多条链接间限速，避免背靠背打抖音 detail 触发风控(CLI main 同理)
             if fail:
                 self._post(f"\n[!] {fail}/{len(lines)} 条失败，见上方出错信息")
             else:
