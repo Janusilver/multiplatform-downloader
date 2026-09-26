@@ -246,6 +246,7 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
                         done = True
                 u = v_url[0].replace("watermark=1", "watermark=0")  # url_list[0] 可能排到带水印档，强制归一
                 ok_f, _ = download(u, sub / f"{i:02d}.mp4", label=f"动图{i}", session=s,
+                                   timeout=(30, 120),   # 元组里较小值才是实际 socket 超时（见 CLAUDE.md「坑」）
                                    headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"})
                 if ok_f:
                     done = True
@@ -284,7 +285,7 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
                 f"?video_id={vid}&ratio=1080p&line=0")
         ok_f = False
         for cand in candidates:
-            ok_f, _ = download(cand, dest, label="视频", timeout=(10, 600), session=s,
+            ok_f, _ = download(cand, dest, label="视频", timeout=(30, 600), session=s,
                                headers={"User-Agent": UA, "Referer": "https://www.douyin.com/"})
             if ok_f:
                 break
