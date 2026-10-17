@@ -39,7 +39,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
-> ⚠️ **Version note**: the exe in `release\` was built as **v1.3.5 (2026-08-28)**, before the "Douyin detail now needs a browser-made signature" fix — **Douyin downloads will fail with that exe** (other platforms are unaffected). Use the source route below for Douyin, or wait for the next Release.
+> ℹ️ The exe in `release\` tracks the source at **v1.4.0** and already includes the Douyin "browser fallback" parsing (requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below).
 
 **You need these files:**
 
