@@ -1,6 +1,6 @@
 # multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
-Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels / user-profile batches. Six platforms, one window.
+Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels. Six platforms, one window.
 
 > A personal tool for **personal archiving & learning**. Respect creators' copyright — do not redistribute watermark-free content.
 
@@ -39,6 +39,8 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
+> ⚠️ **Version note**: the exe in `release\` was built as **v1.3.5 (2026-08-28)**, before the "Douyin detail now needs a browser-made signature" fix — **Douyin downloads will fail with that exe** (other platforms are unaffected). Use the source route below for Douyin, or wait for the next Release.
+
 **You need these files:**
 
 | File | Purpose |
@@ -72,10 +74,12 @@ For people who don't want Python: **clone or download this repo, then double-cli
 ```
 multiplatform-downloader/
 ├── douyin.py            # Douyin core downloader
+├── douyin_browser.py    # Douyin detail browser fallback (headless Chrome/Edge + CDP, stdlib only)
 ├── xhs.py               # Xiaohongshu downloader (curl_cffi Chrome impersonation)
 ├── kuaishou.py          # Kuaishou downloader (__APOLLO_STATE__ parsing)
 ├── twitter.py           # X downloader (yt-dlp wrapper)
 ├── instagram.py         # Instagram downloader (self-built private API, curl_cffi Chrome impersonation)
+├── tests/test_urls.py   # URL-recognition unit tests (offline, plain asserts)
 ├── douyin.bat           # Douyin entry (double-click)
 ├── xhs.bat              # Xiaohongshu entry (double-click)
 ├── kuaishou.bat         # Kuaishou entry (double-click)
@@ -196,13 +200,13 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Problem | Fix |
 |---|---|
 | Douyin "cookie expired / nothing parsed" | Re-export via the extension, overwrite `douyin_cookies.txt` |
-| Douyin "browser exited right after launch" / no browser found | Douyin parsing needs Chrome or Edge installed; if it's installed and you still see this, security software (e.g. Kaspersky) is blocking the browser launch — add the project folder to its trusted/excluded list |
+| Douyin "browser exited right after launch" / no browser found | Douyin parsing needs Chrome or Edge installed. If it is installed and you still see this, security software is blocking "unknown app → launch browser". **With Kaspersky Free, adding the project folder to exclusions does not help** (no trusted-app whitelist in the free edition); the working fix is to **move the interpreter outside the project folder** — e.g. `copy .venv E:\venvs\multiplatform-downloader`, then run `E:\venvs\multiplatform-downloader\Scripts\python.exe douyin.py "url"`; or run Douyin with a system Python (Anaconda etc.). Other platforms never launch a browser, so they are unaffected |
 | Xiaohongshu "note data fetch failed" | Bare `explore/{id}` links get risk-blocked — use a **share link** (has xsec_token, e.g. xhslink) or export `xhs_cookies.txt`; or the note is deleted |
 | Kuaishou "no __APOLLO_STATE__" | Export `kuaishou_cookies.txt`; or the video is deleted |
 | Xiaohongshu video has a 小红书号 watermark | The note has no original-file source; web streams carry it — platform behavior, not bypassable |
 | Album images watermarked | Update to the latest version; new builds use watermark-free sources |
 | Bilibili ffmpeg errors | Make sure `ffmpeg\ffmpeg.exe` exists (see Install) |
-| exe won't start / keeps spinning | **First run** unpacks 55 MB + Defender scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
+| exe won't start / keeps spinning | **First run** unpacks 55 MB + antivirus scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
 | Rebuilt after editing code, but startup still prompts to download an update | The check compares the **version baked into the exe vs the latest GitHub release tag**; if you changed code but didn't bump `APP_VERSION` (top of gui.py) before packaging, the exe is still behind and it will keep prompting. Always bump the version and tag when you repackage |
 | X login wall / can't download | Export `twitter_cookies.txt`; X is hosted overseas — set a proxy via the GUI "代理" box or `--proxy http://127.0.0.1:7890` |
 | Instagram download fails | Export `instagram_cookies.txt` (anonymous usually fails); overseas CDN needs a proxy, same as above. Single posts work; **profile batches have been rate-limited by Instagram (429) since 2026-10 — no known workaround yet** |

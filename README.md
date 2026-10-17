@@ -1,6 +1,6 @@
 # multiplatform-downloader · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels / 主页批量**。六个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。六个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -39,6 +39,8 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
+> ⚠️ **版本注意**：`release\` 里的 exe 是 **v1.3.5（2026-08-28）** 构建，之后的「抖音 detail 改浏览器兜底」没进这个 exe——**用 exe 下抖音会解析失败**（其余平台不受影响）。要下抖音请用下面的源码方式运行，或等下一个 Release。
+
 **需要的东西**：
 
 | 文件 | 作用 |
@@ -72,10 +74,12 @@
 ```
 multiplatform-downloader/
 ├── douyin.py            # 抖音核心下载器
+├── douyin_browser.py    # 抖音 detail 的浏览器兜底（无头 Chrome/Edge + CDP，纯标准库）
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
 ├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
 ├── twitter.py           # X 下载器（yt-dlp 封装）
 ├── instagram.py         # Instagram 下载器（自研私有 API，curl_cffi 伪装 Chrome TLS）
+├── tests/test_urls.py   # URL 识别单测（免联网纯 assert）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── xhs.bat              # 小红书下载入口（双击运行）
 ├── kuaishou.bat         # 快手下载入口（双击运行）
@@ -198,13 +202,13 @@ pip install requests yt-dlp curl_cffi
 | 问题 | 解决 |
 |---|---|
 | 抖音下载提示 Cookie 失效 / 解析不到内容 | 重新打开 douyin.com 点扩展导出，覆盖 `douyin_cookies.txt` |
-| 抖音提示「浏览器启动后立即退出」/ 找不到浏览器 | 抖音解析需要本机装 Chrome 或 Edge；若已装仍报此错，多半是安全软件（如卡巴斯基）拦截了浏览器启动——把项目目录加入杀软信任 / 排除 |
+| 抖音提示「浏览器启动后立即退出」/ 找不到浏览器 | 抖音解析需要本机装 Chrome 或 Edge。若已装仍报此错：多为安全软件拦截了「未知程序启动浏览器」。**卡巴斯基免费版实测把项目目录加进排除项也没用**（免费版无受信任应用白名单）；可行的解法是**把解释器放到项目目录外**——例如 `copy .venv E:\venvs\multiplatform-downloader`，然后用 `E:\venvs\multiplatform-downloader\Scripts\python.exe douyin.py "链接"`；或直接用系统 Python（Anaconda 等）跑抖音。其它平台不启动浏览器，不受影响 |
 | 小红书提示「笔记数据获取失败」 | 裸 `explore/{id}` 链接会被风控，改用**分享链接**（带 xsec_token，如 xhslink 短链）重试；或导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
 | 快手提示「页面无 __APOLLO_STATE__」 | 同样先导出 `kuaishou_cookies.txt`；或链接已删除 |
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
-| exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + Defender 扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
+| exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + 杀毒软件扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
 | X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |
 | Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上。单条帖子正常；**主页批量 2026-10 起被 IG 限流（429），暂时无解** |
