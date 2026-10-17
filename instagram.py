@@ -216,7 +216,14 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         if profile:
             username = url.rstrip("/").rsplit("/", 1)[-1]
             print(f"  [*] 拉取用户主页 @{username}（上限 {max_items} 条）...")
-            items = fetch_user_items(username, cookie, proxy, max_items)
+            try:
+                items = fetch_user_items(username, cookie, proxy, max_items)
+            except Exception as e:
+                # 2026-10-17 实测：IG 把 users/web_profile_info 限流成 429，
+                # 而 feed/user、users/{id}/info、topsearch 分别 403/403/404，主页批量暂无可用替代
+                print(f"  [!] 拉取主页失败（{e}）：IG 目前对 web_profile_info 返回 429 限流；"
+                      "单条帖子（/p/、/reel/）下载仍正常")
+                return False
             print(f"  [*] 共 {len(items)} 条帖子")
             user_dir = out_dir / douyin.sanitize(username)
             user_dir.mkdir(exist_ok=True)
