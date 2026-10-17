@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import yt_dlp
@@ -66,8 +68,15 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         "no_warnings": True,
         "nooverwrites": True,          # 已存在的文件跳过，不重复下
     }
+    cookie_tmp_dir: str | None = None
     if cookie_path and Path(cookie_path).exists():
-        opts["cookiefile"] = str(cookie_path)   # Netscape 格式，扩展导出即用
+        # yt-dlp 退出时会把更新后的 cookiejar 写回 cookiefile：直接用用户的导出文件会被改动，
+        # 文件被占用/只读时还会抛 PermissionError（实测 Downloads 里的导出文件就踩过）。
+        # 拷一份到临时目录交给它写，退出时删掉。
+        cookie_tmp_dir = tempfile.mkdtemp(prefix="dydl-x-cookie-")
+        cookie_tmp = Path(cookie_tmp_dir) / "cookies.txt"
+        shutil.copyfile(cookie_path, cookie_tmp)
+        opts["cookiefile"] = str(cookie_tmp)   # Netscape 格式，扩展导出即用
     if not proxy:
         proxy = douyin.detect_system_proxy()
         if proxy:
@@ -85,6 +94,9 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         hint = "" if cookie_path else "（无 Cookie，若失败请导 twitter_cookies.txt 后重试）"
         print(f"  [!] 下载失败{hint}: {str(e).splitlines()[0]}")
         return False
+    finally:
+        if cookie_tmp_dir:
+            shutil.rmtree(cookie_tmp_dir, ignore_errors=True)
 
 
 def main() -> None:
