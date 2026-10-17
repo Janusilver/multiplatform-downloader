@@ -26,7 +26,7 @@
 | 快手 | 无水印视频、图集 | 建议（匿名可用） |
 | B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
 | X (Twitter) | 单条推文（视频 / 图片），天然无水印 | 建议（匿名可能被登录墙挡住） |
-| Instagram | 帖子图集 / Reels / 用户主页批量，天然无水印 | 建议（匿名大概率失败） |
+| Instagram | 帖子图集 / Reels，天然无水印（用户主页批量暂不可用） | 建议（匿名大概率失败） |
 
 - ✅ **智能识别链接**：粘贴整段分享文案也能自动提取链接，自动分流到对应平台
 - ✅ **剪贴板识别**：复制链接后程序自动检测，输入框上方出现提示条，点一下即可加入下载队列
@@ -116,6 +116,8 @@ pip install requests yt-dlp curl_cffi
 
 **ffmpeg（B站下载需要）**：下载 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或直接 `pip install imageio-ffmpeg`，然后从包内提取 exe 放到 `ffmpeg\`）。没有 ffmpeg 时 B站会失败，其他平台不受影响。
 
+**Chrome / Edge（抖音下载需要）**：抖音详情接口现在要求浏览器现场签名，纯 HTTP 请求会被挡；程序会自动用本机装好的 Chrome 或 Edge 抓一次详情（无头模式、临时配置，不动你的浏览器设置）。装了浏览器即可，无需额外依赖。
+
 ## 📱 抖音下载
 
 ### 第一步（一次性）：导出登录 Cookie
@@ -178,13 +180,13 @@ pip install requests yt-dlp curl_cffi
 ## 🐦 X / 📷 Instagram 下载
 
 - **X**：走 yt-dlp，支持**单条推文**（`/status/ID`）；**主页批量暂不支持**（yt-dlp 无 X 用户主页提取器）。媒体是原始 CDN 直链，**天然无水印**。
-- **Instagram**：自研私有 API（curl_cffi 伪装 Chrome TLS），支持**单条**（帖子 / Reels）与**用户主页批量**；图集 / 轮播**全媒体提取**（图片 + 视频一次全下）。
+- **Instagram**：自研私有 API（curl_cffi 伪装 Chrome TLS），支持**单条**（帖子 / Reels）；图集 / 轮播**全媒体提取**（图片 + 视频一次全下）。⚠️ **用户主页批量当前不可用**（IG 把 `web_profile_info` 接口限流成 429，2026-10 实测），程序会明确提示。
 
 ```bash
 .venv\Scripts\python.exe twitter.py "https://x.com/user/status/123"            # X 单条推文
 .venv\Scripts\python.exe instagram.py "https://www.instagram.com/p/CxAb12345/" # 帖子（图集全提取）
 .venv\Scripts\python.exe instagram.py "https://www.instagram.com/reel/AbC/"    # Reels
-.venv\Scripts\python.exe instagram.py "https://www.instagram.com/user/" --max 10  # 主页批量
+.venv\Scripts\python.exe instagram.py "https://www.instagram.com/user/" --max 10  # 主页批量（当前不可用：IG 限流 429）
 ```
 
 > **前提**：X 现需登录态（匿名可能被登录墙挡住）；IG 需登录 session（匿名大概率失败）——用浏览器扩展导出 `twitter_cookies.txt` / `instagram_cookies.txt` 放脚本 / exe 旁。
@@ -196,6 +198,7 @@ pip install requests yt-dlp curl_cffi
 | 问题 | 解决 |
 |---|---|
 | 抖音下载提示 Cookie 失效 / 解析不到内容 | 重新打开 douyin.com 点扩展导出，覆盖 `douyin_cookies.txt` |
+| 抖音提示「浏览器启动后立即退出」/ 找不到浏览器 | 抖音解析需要本机装 Chrome 或 Edge；若已装仍报此错，多半是安全软件（如卡巴斯基）拦截了浏览器启动——把项目目录加入杀软信任 / 排除 |
 | 小红书提示「笔记数据获取失败」 | 裸 `explore/{id}` 链接会被风控，改用**分享链接**（带 xsec_token，如 xhslink 短链）重试；或导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
 | 快手提示「页面无 __APOLLO_STATE__」 | 同样先导出 `kuaishou_cookies.txt`；或链接已删除 |
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
@@ -204,7 +207,7 @@ pip install requests yt-dlp curl_cffi
 | exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + Defender 扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
 | X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |
-| Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上 |
+| Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上。单条帖子正常；**主页批量 2026-10 起被 IG 限流（429），暂时无解** |
 | 贴了链接却提示「未找到 XX 链接」 | 出于安全只接受**平台自家域名**（`v.douyin.com` / `xhslink.com` / `v.kuaishou.com` 及各主站域名）。站外链接即使文本里带平台域名关键词也会被拒——这是防止把你的登录 Cookie 发给第三方站点。另外短链跳转全程**不携带 Cookie** |
 
 ## ⚠️ 免责声明

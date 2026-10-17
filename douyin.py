@@ -3,9 +3,11 @@
 """
 抖音图文 / 视频 无水印下载器（需要浏览器扩展导出的 douyin_cookies.txt）
 =================================================================
-流程：短链 → aweme_id → aweme/detail API（带 Cookie）→ 提取图集原图或无水印视频 → 下载。
+流程：短链 → aweme_id → aweme/detail（带 Cookie）→ 提取图集原图或无水印视频 → 下载。
+2026-10 起 detail 接口要求 secsdk 现场签名，纯 requests 必被 Argus 拦；此时自动退回
+douyin_browser.py（无头 Chrome/Edge + CDP 截响应）拿同一份 detail 数据。
 
-依赖：requests（已装在 .venv）
+依赖：requests + 本机 Chrome 或 Edge（兜底抓详情用；douyin_browser.py 本身纯标准库）
 用法：
   python douyin.py "https://v.douyin.com/xxxx/"        # 单条
   python douyin.py links.txt                           # 批量（每行一条）
@@ -90,8 +92,13 @@ def detect_system_proxy() -> str:
     return ""
 
 
-def load_cookie_str(path: str = "douyin_cookies.txt") -> str:
-    """读扩展导出的 cookies.txt，转成 Cookie 请求头字符串。"""
+def load_cookie_str(path: str = "douyin_cookies.txt", host: str | None = None) -> str:
+    """读扩展导出的 cookies.txt，转成 Cookie 请求头字符串。
+
+    host 给定时只保留对该 host 生效的 cookie。同一个 cookie 名可能同时存在于多个子域
+    （实测导出文件里 www.douyin.com 与 live.douyin.com 的 s_v_web_id 值不同），
+    不按域名过滤就按行拼，后出现的值会覆盖真正该发的那一个。
+    """
     pairs = []
     for line in open(path, encoding="utf-8"):
         line = line.strip()
@@ -104,6 +111,10 @@ def load_cookie_str(path: str = "douyin_cookies.txt") -> str:
         parts = line.split("\t")
         if len(parts) < 7:
             continue
+        if host:
+            domain = parts[0].lstrip(".").lower()
+            if not (host == domain or host.endswith("." + domain)):
+                continue
         pairs.append(f"{parts[-2]}={parts[-1]}")
     return "; ".join(pairs)
 
@@ -145,11 +156,40 @@ def resolve_aweme_id(url: str, s: requests.Session) -> str | None:
 
 
 def fetch_detail(aweme_id: str, s: requests.Session) -> dict:
+    """取作品详情。先直连接口，被签名校验拦下时退回真浏览器抓响应。"""
     url = (f"https://www.douyin.com/aweme/v1/web/aweme/detail/"
            f"?aweme_id={aweme_id}&device_platform=webapp&aid=6383&channel=channel_pc_web")
     r = s.get(url, timeout=20)
-    r.raise_for_status()
-    return r.json().get("aweme_detail") or {}
+    if r.status_code == 200 and r.content:
+        detail = r.json().get("aweme_detail") or {}
+        if detail:
+            return detail
+    # 2026-10 起 detail 要 secsdk 现场签名（a_bogus + timestamp + x-secsdk-web-signature），
+    # 纯 requests 一律 403 `Blocked by ArgusSecurityPlugin ...`。签名依赖浏览器 JS 运行时与
+    # 本地会话密钥，复现代价远大于收益，改让真浏览器自己请求、经 CDP 截响应。
+    print("  [*] 接口被签名校验拦截，改用浏览器抓取（约 5~10s）")
+    import douyin_browser
+    return douyin_browser.fetch_detail(aweme_id)
+
+
+def best_video_url(video: dict) -> tuple[str, str]:
+    """挑最高画质，返回 (url, 档位名)。
+
+    不能直接用 play_addr.url_list[0]：它只是默认档，实测同一条作品 play_addr 是 540p，
+    而 bit_rate 里有 normal_1080_0（1080x1920）。按 (height, 平均码率) 降序取第一个。
+    """
+    cands = []
+    for b in video.get("bit_rate") or []:
+        addr = b.get("play_addr") or {}
+        urls = addr.get("url_list") or []
+        if urls:
+            label = b.get("gear_name") or f"{addr.get('height') or '?'}p"
+            cands.append(((addr.get("height") or 0, b.get("bit_rate") or 0), urls[0], label))
+    if cands:
+        cands.sort(key=lambda c: c[0], reverse=True)
+        return cands[0][1], cands[0][2]
+    urls = (video.get("play_addr") or {}).get("url_list") or []
+    return (urls[0], "default") if urls else ("", "")
 
 
 def sanitize(name: str, max_len: int = 80) -> str:
@@ -216,7 +256,11 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
     if not aid:
         print("  [!] 无法解析 aweme_id，链接可能失效或 Cookie 过期")
         return False
-    detail = fetch_detail(aid, s)
+    try:
+        detail = fetch_detail(aid, s)
+    except RuntimeError as e:            # 浏览器兜底失败：给一行可读原因，不抛栈
+        print(f"  [!] {e}")
+        return False
     desc = detail.get("desc", "") or ""
     author = (detail.get("author") or {}).get("nickname", "") or "未知"
     base = sanitize(f"{author}_{desc}")
@@ -269,13 +313,13 @@ def process(link: str, out_dir: Path, s: requests.Session) -> bool:
     else:
         video = detail.get("video") or {}
         play = video.get("play_addr") or {}
-        ul = play.get("url_list") or []
-        if not ul:
+        u, gear = best_video_url(video)
+        if not u:
             print("  [!] 既无图集也无视频地址")
             return False
-        u = ul[0].replace("/playwm/", "/play/")   # 去水印
+        u = u.replace("/playwm/", "/play/")   # 去水印
         dest = out_dir / f"{base}.mp4"
-        print(f"  [*] 视频: {desc[:40] or '(无标题)'} by {author}")
+        print(f"  [*] 视频({gear}): {desc[:40] or '(无标题)'} by {author}")
         # 主路径（playwm→play）；失败时用 snssdk 直链兜底（play_addr.uri 即 video_id）
         candidates = [u]
         vid = play.get("uri")
@@ -307,7 +351,7 @@ def main() -> None:
     # 默认固定到脚本目录，避免从别处运行把下载散落到当前目录
     out_dir = Path(args.output) if args.output else Path(__file__).resolve().parent / "downloads"
     out_dir.mkdir(parents=True, exist_ok=True)
-    cookie = load_cookie_str(args.cookie)
+    cookie = load_cookie_str(args.cookie, host="www.douyin.com")
     if not cookie:
         sys.exit("[!] Cookie 为空。请先在浏览器扩展里导出 douyin_cookies.txt（见 CLAUDE.md）")
     s = make_session(cookie)

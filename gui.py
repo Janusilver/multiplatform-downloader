@@ -506,7 +506,7 @@ class App:
             self.q.put(("done", ""))
 
     def _run_douyin(self, url: str) -> bool:
-        cookie = (douyin.load_cookie_str(str(COOKIE_PATH))
+        cookie = (douyin.load_cookie_str(str(COOKIE_PATH), host="www.douyin.com")
                   if COOKIE_PATH.exists() else "")
         if not cookie:
             self._post("  [!] Cookie 为空，跳过（先导出 douyin_cookies.txt）")
