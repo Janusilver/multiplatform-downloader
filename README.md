@@ -1,4 +1,4 @@
-# multiplatform-downloader · 多平台无水印下载器
+﻿# multiplatform-downloader · 多平台无水印下载器
 
 粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）、**YouTube 视频**（单条 / 播放列表，自动合并音视频），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。七个平台一个窗口搞定。
 
@@ -40,7 +40,7 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.5.0**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+> ℹ️ `release\` 里的 exe 是 **v1.5.1**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
 
 **需要的东西**：
 

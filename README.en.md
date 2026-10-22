@@ -40,7 +40,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
-> ℹ️ The exe in `release\` is **v1.5.0** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
+> ℹ️ The exe in `release\` is **v1.5.1** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
 
 **You need these files:**
 
