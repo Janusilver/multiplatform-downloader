@@ -278,11 +278,14 @@ def main() -> None:
     else:
         links = [args.input]
     print(f"[*] 共 {len(links)} 条链接")
+    all_ok = True
     for i, link in enumerate(links, 1):
         print(f"[{i}/{len(links)}]")
-        process(link, out_dir, cookie)
+        if not process(link, out_dir, cookie):
+            all_ok = False
         if i < len(links):
             time.sleep(2)   # 限速避免触发风控
+    sys.exit(0 if all_ok else 1)
 
 
 if __name__ == "__main__":

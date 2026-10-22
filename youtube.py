@@ -13,7 +13,8 @@ YouTube 视频天然无水印，交 yt-dlp 即可，无需自己解析。
         `list=RD…`（自动生成的 Mix / 电台，无限流）→ 永远按单条处理
   频道（`@name` / `/channel/` / `/c/`）→ 不支持，直接提示
 
-依赖：yt-dlp + 便携 ffmpeg（`ffmpeg/ffmpeg.exe`）
+依赖：yt-dlp + ffmpeg（Windows 用项目内便携 `ffmpeg/ffmpeg.exe`；
+      Linux 放 `ffmpeg/ffmpeg`，或直接用系统 PATH 里的 ffmpeg）
 用法：
   python youtube.py "https://youtu.be/xxxx"
   python youtube.py "https://www.youtube.com/watch?v=xxxx"
@@ -127,7 +128,12 @@ def should_download_playlist(url: str, want_playlist: bool) -> bool:
     return False
 
 
-def _fmt_opts(ffmpeg_dir: Path) -> dict:
+def _find_ffmpeg(base_dir: Path) -> Path | None:
+    """ffmpeg 解析实现统一放在 douyin.find_ffmpeg（各平台共用一份）。"""
+    return douyin.find_ffmpeg(base_dir)
+
+
+def _fmt_opts(ffmpeg: Path | None) -> dict:
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
@@ -139,8 +145,8 @@ def _fmt_opts(ffmpeg_dir: Path) -> dict:
         "fragment_retries": 3,
         "ignoreerrors": True,               # 列表里个别视频失败不中断整体
     }
-    if ffmpeg_dir.is_dir():
-        opts["ffmpeg_location"] = str(ffmpeg_dir)
+    if ffmpeg is not None:
+        opts["ffmpeg_location"] = str(ffmpeg)
     return opts
 
 
@@ -160,8 +166,7 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         return False
 
     want_list = should_download_playlist(url, playlist)
-    ffmpeg_dir = Path(__file__).resolve().parent / "ffmpeg"
-    opts = _fmt_opts(ffmpeg_dir)
+    opts = _fmt_opts(_find_ffmpeg(Path(__file__).resolve().parent))
     if want_list:
         max_items = max(1, max_items)       # yt-dlp 的 playlist_items 不接受 1-0 / 1--5
         print(f"  [*] 下载播放列表（最多 {max_items} 条）...")

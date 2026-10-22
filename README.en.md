@@ -40,7 +40,9 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
-> ℹ️ The exe in `release\` is **v1.5.1** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
+> ℹ️ The exe in `release\` is **v1.5.2** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
+>
+> **What v1.5.2 fixes over 1.5.1**: some Kuaishou items are m3u8 streams — the old build saved the playlist text as a broken ~19 KB mp4; now ffmpeg merges it and retries candidate streams. Scripts now exit non-zero on failure (batch/CI friendly). ffmpeg lookup is platform-aware (Windows `ffmpeg.exe`, Linux `ffmpeg` or system PATH). The Cookie-export extension (v1.2) also exports the YouTube cookie.
 
 **You need these files:**
 
@@ -108,21 +110,23 @@ multiplatform-downloader/
 
 ## 🚀 Install (run from source)
 
-Requirements: Python 3.10+, Windows / macOS / Linux.
+Requirements: Python 3.10+. **Fully tested on Windows only**; the Linux CLI works but only some paths are verified (see "Tested scope" below); macOS is untested (no device) and not claimed.
 
 ```bash
 # 1. venv (Windows)
 python -m venv .venv
 .venv\Scripts\activate
 
-# macOS / Linux:
+# Linux:
 # python -m venv .venv && source .venv/bin/activate
 
 # 2. deps (curl_cffi is used for Xiaohongshu/Kuaishou anti-risk-control)
 pip install requests yt-dlp curl_cffi
 ```
 
-**ffmpeg (Bilibili needs it)**: put `ffmpeg\ffmpeg.exe` in the project (or `pip install imageio-ffmpeg` and extract the exe from the package). Without ffmpeg only Bilibili fails.
+**ffmpeg (Bilibili/YouTube merging, Kuaishou m3u8 streams)**: on Windows put `ffmpeg\ffmpeg.exe` in the project (or `pip install imageio-ffmpeg` and extract the exe from the package). Without ffmpeg only Bilibili/YouTube/some Kuaishou items fail. On **Linux**, put an executable named `ffmpeg` (no `.exe`) into `ffmpeg/`, or install it system-wide (`apt install ffmpeg`) — the program picks the right one per platform.
+
+**Tested scope**: Windows = full (YouTube / Instagram real downloads + all scripts); Linux = unit tests, script startup, YouTube download+merge, Instagram multi-media download. **Xiaohongshu/Kuaishou/Douyin real downloads and the GUI are untested on Linux**; macOS is untested (no device).
 
 **Chrome / Edge (Douyin needs one)**: the Douyin detail endpoint now requires a browser-made signature and refuses plain HTTP requests. The tool automatically fetches the detail once through your installed Chrome or Edge (headless, throwaway profile — your browser settings are untouched). No extra dependency, just have a browser installed.
 
