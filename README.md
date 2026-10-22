@@ -1,4 +1,4 @@
-﻿# multiplatform-downloader · 多平台无水印下载器
+# multiplatform-downloader · 多平台无水印下载器
 
 粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）、**YouTube 视频**（单条 / 播放列表，自动合并音视频），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。七个平台一个窗口搞定。
 
@@ -47,13 +47,13 @@
 | 文件 | 作用 |
 |---|---|
 | `release\多平台下载器.exe` | 主程序，双击即用 |
-| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / 快手 / X / Instagram Cookie（B站不需要） |
+| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / 快手 / YouTube / X / Instagram Cookie（B站不需要） |
 | `douyin_cookies.txt` | 抖音 Cookie（必需），放到 exe **旁边** |
 | `xhs_cookies.txt` | 小红书 Cookie（建议），放到 exe 旁边 |
 | `kuaishou_cookies.txt` | 快手 Cookie（建议），放到 exe 旁边 |
 | `twitter_cookies.txt` | X Cookie（建议，匿名可能被登录墙挡住），放到 exe 旁边 |
 | `instagram_cookies.txt` | Instagram Cookie（建议，匿名大概率失败），放到 exe 旁边 |
-| `youtube_cookies.txt` | YouTube Cookie（可选，公开视频不需要；会员 / 年龄限制视频才要） |
+| `youtube_cookies.txt` | YouTube Cookie（可选，公开视频不需要；会员 / 年龄限制视频才要；扩展会连同 `.google.com` 域一起导，登录态 Cookie 在那里） |
 
 **首次使用（4 步）**：
 
@@ -98,7 +98,7 @@ multiplatform-downloader/
 ├── release/
 │   └── 多平台下载器.exe   # 免环境版成品（clone 后双击即用）
 ├── extensions/
-│   └── cookie-export/   # 浏览器扩展：一键导出五平台 Cookie
+│   └── cookie-export/   # 浏览器扩展：一键导出六平台 Cookie
 ├── douyin_cookies.txt   # 【隐私】抖音 Cookie，已被 .gitignore 排除
 ├── xhs_cookies.txt      # 【隐私】小红书 Cookie，已被 .gitignore 排除
 ├── kuaishou_cookies.txt # 【隐私】快手 Cookie，已被 .gitignore 排除

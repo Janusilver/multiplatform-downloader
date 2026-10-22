@@ -10,7 +10,7 @@
 - **Instagram / X 是国外站**，走代理（`--proxy` 或系统代理）。IG 网页端是服务端渲染 + 签名接口，拿不全媒体，改用**私有 API**（`i.instagram.com/api/v1`）拿完整媒体数据；X 媒体是平台原始 CDN 直链，天然无水印，直接交 **yt-dlp** 最省事（免手动解析、免去水印）。
 
 ## 工作流
-1. **导出 Cookie（一次性安装）**：Edge 打开 `edge://extensions/` → 开启左下角"开发人员模式" → "加载解压缩的扩展" → 选 `extensions\cookie-export` 目录 → 打开各站点并保持登录 → 点扩展图标分别导出 → 把 `douyin_cookies.txt` / `xhs_cookies.txt` / `kuaishou_cookies.txt` / `instagram_cookies.txt` / `twitter_cookies.txt` 移到项目根目录。**前三平台可选**（小红书/快手匿名可用但可能风控，抖音必须），**X 可选**（匿名试一次，可能被登录墙），**Instagram 必需**（匿名拿不到数据）。
+1. **导出 Cookie（一次性安装）**：Edge 打开 `edge://extensions/` → 开启左下角"开发人员模式" → "加载解压缩的扩展" → 选 `extensions\cookie-export` 目录 → 打开各站点并保持登录 → 点扩展图标分别导出 → 把 `douyin_cookies.txt` / `xhs_cookies.txt` / `kuaishou_cookies.txt` / `instagram_cookies.txt` / `twitter_cookies.txt` / `youtube_cookies.txt` 移到项目根目录。**前三平台可选**（小红书/快手匿名可用但可能风控，抖音必须），**X 可选**（匿名试一次，可能被登录墙），**Instagram 必需**（匿名拿不到数据），**YouTube 可选**（公开视频不需要，会员 / 年龄限制 / 私密视频才要；YouTube 按钮会同时导 `.youtube.com` 与 `.google.com` 两域，登录态 Cookie 实际存在 `.google.com` 上）。
 2. **命令行下载**（注意用 venv python，本机 `python` 是 Store stub）：
 
 ```bash
@@ -38,7 +38,7 @@
 - `youtube.py`（YouTube）：yt-dlp 封装，支持单条 + 播放列表。**链接判定**：`/playlist?list=` 才是"列表"；`watch?v=…&list=…` 默认**只下当前视频**（`--playlist` / GUI 复选框才下整列表）；`list=RD…`（Mix/电台）当单条；频道主页（`@` / `/channel/` / `/c/`）不支持。列表存 `downloads/列表名/` 子目录、默认 `--max 20`。**格式阶梯**：`bv*[vcodec^=avc1]+ba[ext=m4a]/bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b`——优先 H.264（兼容性最好、避开 4K AV1 流在部分网络下下到一半 403），再 mp4，再最佳；`outtmpl` 用 `%(title).60s`（**不能写 `%(title,.60s)`，yt-dlp 会报 `ERROR: 'title,.60s'`**）。单条必须 `ignoreerrors=False`（否则 403 被吞、变成"假成功"）；成败按**下载前后文件集合差**判定（播放列表用 ignoreerrors 静默跳过失败项时也能正确报错），本次新产生的 `.part/.ytdl` 会在失败后清掉。Cookie 同样走 `douyin.temp_cookie_copy()`（yt-dlp 会写回 cookiefile）。
 - **B站**：`bilibili.bat` 调 yt-dlp `-f "bv*+ba/b"`（视频+音频合并，最高免费画质；1080p60 需大会员）。依赖项目内**便携 ffmpeg**（`ffmpeg/ffmpeg.exe`，从 `imageio-ffmpeg` pip 包提取，无需系统安装/管理员）。
 - **图集"会动"分两种**：普通图集作品的 `video.play_addr` 是背景音乐 mp3（非视频），feed 轮播/缩放动效是前端渲染，无视频文件可下（已用 ANIM 帧检测确认纯静态）；但**实况图图集**（`images[i].live_photo_type=1` / `clip_type=5`）每张图**内嵌一个短视频 mp4**（`images[i].video.download_addr`，`watermark=0`），`douyin.py` 会把该张的**静态封面 jpg + 动图 mp4 都下**（同编号 `{i:02d}.jpg` + `{i:02d}.mp4`）。
-- 扩展 `extensions\cookie-export`：Manifest V3，`chrome.cookies` 拿 HttpOnly，跳过了无名字的畸形 Cookie（`if (!c.name) continue`）。**五平台版**：`SITES` 字典配置 抖音/小红书/快手/X/Instagram 的域名与导出文件名（`.x.com` + `.instagram.com`，X 用 `.x.com` 而非 `twitter.com` 域）。
+- 扩展 `extensions\cookie-export`：Manifest V3，`chrome.cookies` 拿 HttpOnly，跳过了无名字的畸形 Cookie（`if (!c.name) continue`）。**六平台版（v1.2）**：`SITES` 字典配置 抖音/小红书/快手/YouTube/X/Instagram 的域名与导出文件名（`.x.com` + `.instagram.com`，X 用 `.x.com` 而非 `twitter.com` 域；**YouTube 用 `domains` 数组同时导 `.youtube.com` + `.google.com`**——实测登录态 `SID/SAPISID/__Secure-*PSID` 只在 `.google.com`，`.youtube.com` 只有 `VISITOR_INFO1_LIVE` 之类，单域导出 yt-dlp 认不出登录态）。
 - 打包：`build.py` 需 `--collect-all curl_cffi`（否则 exe 里小红书/快手报缺 DLL）；GitHub Actions（`.github/workflows/build.yml`）用 imageio-ffmpeg 提取便携 ffmpeg，push `v*` 标签自动出 Release。
 
 ## 坑
