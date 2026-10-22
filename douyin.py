@@ -50,6 +50,23 @@ MIME_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
             "image/avif": ".avif", "image/gif": ".gif", "image/heic": ".heic"}
 
 
+def find_ffmpeg(base_dir: Path | None = None) -> Path | None:
+    """返回可用的 ffmpeg：项目内便携版优先，其次系统 PATH。
+
+    只认当前平台可执行的文件名——仓库里带着 Windows 的 ffmpeg.exe，
+    Linux 下不能误用它（否则会拿 .exe 去合并而失败）。
+    """
+    if base_dir is None:
+        base_dir = Path(__file__).resolve().parent
+    names = ("ffmpeg.exe", "ffmpeg") if os.name == "nt" else ("ffmpeg",)
+    for name in names:
+        cand = Path(base_dir) / "ffmpeg" / name
+        if cand.is_file() and (os.name == "nt" or os.access(cand, os.X_OK)):
+            return cand
+    system = shutil.which("ffmpeg")
+    return Path(system) if system else None
+
+
 def host_allowed(url: str, domains: tuple[str, ...]) -> bool:
     """URL 的 host 是否落在白名单内（含子域）。
 
@@ -378,11 +395,14 @@ def main() -> None:
     else:
         links = [args.input]
     print(f"[*] 共 {len(links)} 条链接")
+    all_ok = True
     for i, link in enumerate(links, 1):
         print(f"[{i}/{len(links)}]")
-        process(link, out_dir, s)
+        if not process(link, out_dir, s):
+            all_ok = False
         if i < len(links):
             time.sleep(2)   # 限速避免触发风控
+    sys.exit(0 if all_ok else 1)
 
 
 if __name__ == "__main__":

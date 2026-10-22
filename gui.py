@@ -12,6 +12,7 @@ import json
 import os
 import queue
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -23,7 +24,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -42,6 +43,11 @@ if getattr(sys, "frozen", False):              # 打包后：exe 所在目录 + 
 else:                                          # 开发模式：脚本所在目录
     BASE = Path(__file__).resolve().parent
     FFMPEG_DIR = BASE / "ffmpeg"
+
+def _ffmpeg_location() -> Path | None:
+    """ffmpeg 解析实现统一放在 douyin.find_ffmpeg（各平台共用一份）。"""
+    return douyin.find_ffmpeg(FFMPEG_DIR.parent)
+
 
 COOKIE_PATH = BASE / "douyin_cookies.txt"
 XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
@@ -313,8 +319,12 @@ class App:
     def open_dir(self) -> None:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         try:
-            os.startfile(str(self.out_dir))          # Windows
-        except AttributeError:
+            if os.name == "nt":
+                os.startfile(str(self.out_dir))          # Windows
+            else:
+                subprocess.Popen(["xdg-open", str(self.out_dir)])   # Linux
+        except (AttributeError, OSError):
+            # 没有图形环境或缺少 xdg-open 时退化为打印路径，不影响下载
             self._post(f"[*] 保存目录：{self.out_dir}")
 
     # ---------- 日志 ----------
@@ -564,10 +574,11 @@ class App:
             "no_warnings": True,
             "progress_hooks": [self._bili_hook],
         }
-        if FFMPEG_DIR.joinpath("ffmpeg.exe").exists():
-            opts["ffmpeg_location"] = str(FFMPEG_DIR)
+        ffmpeg = _ffmpeg_location()
+        if ffmpeg is not None:
+            opts["ffmpeg_location"] = str(ffmpeg)
         else:
-            self._post("  [!] 未找到便携 ffmpeg，B站将无法合并音视频")
+            self._post("  [!] 未找到 ffmpeg，B站将无法合并音视频")
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         self._post("  [✓] B站下载完成")

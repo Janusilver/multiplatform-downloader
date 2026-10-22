@@ -40,7 +40,9 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.5.1**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+> ℹ️ `release\` 里的 exe 是 **v1.5.2**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+>
+> **v1.5.2 相对 1.5.1 的修复**：快手部分作品是 m3u8 流，旧版会把播放列表文本存成坏 mp4（约 19 KB），现改用 ffmpeg 合并并自动重试候选档；各平台脚本下载失败时退出码改为非 0（批量/CI 可判定）；ffmpeg 查找改为按平台识别（Windows 用 `ffmpeg.exe`，Linux 用 `ffmpeg` 或系统 PATH）。Cookie 导出扩展同时支持导出 YouTube Cookie（v1.2）。
 
 **需要的东西**：
 
@@ -108,21 +110,24 @@ multiplatform-downloader/
 
 ## 🚀 安装（源码运行）
 
-要求：Python 3.10+，Windows / macOS / Linux 均可。
+要求：Python 3.10+。**只在 Windows 上做过完整实测**；Linux 命令行可用但只验证了部分功能（见下「平台实测情况」）；macOS 没设备、未测试，不承诺支持。
 
 ```bash
 # 1. 进入项目目录，创建虚拟环境（Windows）
 python -m venv .venv
 .venv\Scripts\activate
 
-# macOS / Linux：
+# Linux：
 # python -m venv .venv && source .venv/bin/activate
 
 # 2. 安装依赖（curl_cffi 用于小红书/快手反风控）
 pip install requests yt-dlp curl_cffi
 ```
 
-**ffmpeg（B站下载需要）**：下载 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或直接 `pip install imageio-ffmpeg`，然后从包内提取 exe 放到 `ffmpeg\`）。没有 ffmpeg 时 B站会失败，其他平台不受影响。
+**ffmpeg（B站 / YouTube 合并音视频、快手 m3u8 流需要）**：Windows 下把 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或 `pip install imageio-ffmpeg` 后从包内提取 exe 放进去）。没有 ffmpeg 时 B站 / YouTube / 部分快手视频会失败，其他平台不受影响。
+
+- **Linux**：把 ffmpeg 可执行文件放进 `ffmpeg/` 并命名为 `ffmpeg`（不带 `.exe`），或直接 `apt install ffmpeg` 用系统 PATH 里的版本——程序会自动挑当前平台可用的那个。
+- **平台实测情况**：Windows 完整实测（YouTube / Instagram 真实下载 + 全部脚本）；Linux 只实测了「URL 解析单元测试、6 个脚本启动、YouTube 下载+合并、Instagram 多图下载」，**小红书/快手/抖音的真实下载和 GUI 未实测**；macOS **没设备，未测试**。
 
 **Chrome / Edge（抖音下载需要）**：抖音详情接口现在要求浏览器现场签名，纯 HTTP 请求会被挡；程序会自动用本机装好的 Chrome 或 Edge 抓一次详情（无头模式、临时配置，不动你的浏览器设置）。装了浏览器即可，无需额外依赖。
 

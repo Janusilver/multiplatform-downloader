@@ -265,7 +265,8 @@ def main() -> None:
     if not url:
         sys.exit("[!] 未找到 Instagram 链接")
     print(f"  [*] 解析: {url}")
-    process(url, out_dir, cookie_path=args.cookie, proxy=args.proxy, max_items=args.max)
+    ok = process(url, out_dir, cookie_path=args.cookie, proxy=args.proxy, max_items=args.max)
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":

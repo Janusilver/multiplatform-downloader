@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -185,6 +186,50 @@ def atlas_urls(photo: dict) -> list[str]:
     return out
 
 
+def _is_playlist(path: Path) -> bool:
+    """快手部分作品给的是 m3u8 播放列表：按 .mp4 存下来就是坏文件，靠文件头识别。"""
+    try:
+        head = path.read_bytes()[:16]
+    except OSError:
+        return False
+    return head.lstrip().startswith(b"#EXTM3U")
+
+
+def download_video(url: str, dest: Path) -> bool:
+    """下载视频：普通直链直接下；m3u8（HLS）交给 ffmpeg 合并。"""
+    headers = {"User-Agent": UA, "Referer": "https://www.kuaishou.com/"}
+    if ".m3u8" not in url.lower():
+        done, _ = douyin.download(url, dest, label="视频", timeout=(10, 600),
+                                  headers=headers)
+        if done and not _is_playlist(dest):
+            return True
+        if dest.exists():
+            dest.unlink()          # 直链其实返回了播放列表 → 删掉，改走 HLS
+    return _download_hls(url, dest)
+
+
+def _download_hls(url: str, dest: Path) -> bool:
+    ffmpeg = douyin.find_ffmpeg()
+    if ffmpeg is None:
+        print("  [!] 该视频是 m3u8 流，需要 ffmpeg 合并："
+              "Windows 放 ffmpeg\\ffmpeg.exe，Linux 放 ffmpeg/ffmpeg 或装系统包")
+        return False
+    cmd = [str(ffmpeg), "-y", "-loglevel", "error",
+           "-headers", f"User-Agent: {UA}\r\nReferer: https://www.kuaishou.com/\r\n",
+           "-i", url, "-c", "copy", str(dest)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"  [!] ffmpeg 处理 m3u8 失败: {e}")
+        return False
+    if dest.exists() and dest.stat().st_size > 0 and not _is_playlist(dest):
+        return True
+    err = (r.stderr or "").strip().splitlines()
+    detail = err[-1][:160] if err else f"ffmpeg 退出码 {r.returncode}，目标文件无效（{dest.stat().st_size if dest.exists() else 0} 字节）"
+    print(f"  [!] ffmpeg 处理 m3u8 失败: {detail}")
+    return False
+
+
 def process(link: str, out_dir: Path, cookie: str) -> bool:
     url = extract_url(link)
     if not url:
@@ -231,12 +276,10 @@ def process(link: str, out_dir: Path, cookie: str) -> bool:
         return False
     dest = out_dir / f"{base}.mp4"
     print(f"  [*] 视频: {caption[:40] or '(无标题)'} by {author}")
-    done, _ = douyin.download(vids[0], dest, label="视频", timeout=(10, 600),
-                              headers={"User-Agent": UA,
-                                       "Referer": "https://www.kuaishou.com/"})
-    if done:
-        print(f"  [✓] 已保存 → {dest}")
-        return True
+    for u in vids[:3]:                       # 最佳画质优先；失败再试候选档
+        if download_video(u, dest):
+            print(f"  [✓] 已保存 → {dest}")
+            return True
     print("  [!] 视频下载失败")
     return False
 
@@ -262,11 +305,14 @@ def main() -> None:
     else:
         links = [args.input]
     print(f"[*] 共 {len(links)} 条链接")
+    all_ok = True
     for i, link in enumerate(links, 1):
         print(f"[{i}/{len(links)}]")
-        process(link, out_dir, cookie)
+        if not process(link, out_dir, cookie):
+            all_ok = False
         if i < len(links):
             time.sleep(2)   # 限速避免触发风控
+    sys.exit(0 if all_ok else 1)
 
 
 if __name__ == "__main__":
