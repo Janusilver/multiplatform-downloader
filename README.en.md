@@ -1,4 +1,4 @@
-# multiplatform-downloader · Multi-Platform Watermark-Free Downloader
+﻿# multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
 Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **YouTube videos** (single video / playlist, auto-merged audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels. Seven platforms, one window.
 
@@ -41,8 +41,6 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
 > ℹ️ The exe in `release\` is **v1.5.0** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
-
-> 💡 If double-clicking the exe shows **"Could not create temporary directory"** (some AV or security policies block PyInstaller's self-extraction), download **`multiplatform-downloader-onedir.zip`** from the Release instead and run the `多平台下载器.exe` inside the extracted folder.
 
 **You need these files:**
 
