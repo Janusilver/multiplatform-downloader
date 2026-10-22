@@ -13,9 +13,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 ## 📸 Screenshots
 
-| Main window | Download history |
-|---|---|
-| ![main](docs/gui-main.png) | ![history](docs/gui-history.png) |
+![main](docs/gui-main.png)
 
 ## ✨ Features
 
