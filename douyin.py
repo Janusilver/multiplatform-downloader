@@ -22,7 +22,9 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -117,6 +119,21 @@ def load_cookie_str(path: str = "douyin_cookies.txt", host: str | None = None) -
                 continue
         pairs.append(f"{parts[-2]}={parts[-1]}")
     return "; ".join(pairs)
+
+
+def temp_cookie_copy(cookie_path: str | None) -> tuple[str | None, Path | None]:
+    """把 Cookie 文件拷到临时目录，返回 (临时目录, 临时文件)；源文件不存在时 (None, None)。
+
+    yt-dlp 退出时会把更新后的 cookiejar 写回 `cookiefile`：直接把用户的导出文件传给它会被
+    改动，文件被占用/只读时还会抛 PermissionError（实测下载已成功但进程 exit 1）。调用方
+    用完需删除临时目录（见 twitter.py / youtube.py 的 finally）。
+    """
+    if not (cookie_path and Path(cookie_path).exists()):
+        return None, None
+    tmp_dir = tempfile.mkdtemp(prefix="dydl-cookie-")
+    tmp = Path(tmp_dir) / "cookies.txt"
+    shutil.copyfile(cookie_path, tmp)
+    return tmp_dir, tmp
 
 
 def make_session(cookie: str) -> requests.Session:

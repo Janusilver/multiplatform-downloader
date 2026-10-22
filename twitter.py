@@ -18,7 +18,6 @@ import argparse
 import re
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 import yt_dlp
@@ -70,12 +69,9 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
     }
     cookie_tmp_dir: str | None = None
     if cookie_path and Path(cookie_path).exists():
-        # yt-dlp 退出时会把更新后的 cookiejar 写回 cookiefile：直接用用户的导出文件会被改动，
-        # 文件被占用/只读时还会抛 PermissionError（实测 Downloads 里的导出文件就踩过）。
-        # 拷一份到临时目录交给它写，退出时删掉。
-        cookie_tmp_dir = tempfile.mkdtemp(prefix="dydl-x-cookie-")
-        cookie_tmp = Path(cookie_tmp_dir) / "cookies.txt"
-        shutil.copyfile(cookie_path, cookie_tmp)
+        # yt-dlp 退出时会把更新后的 cookiejar 写回 cookiefile，直接传用户的导出文件会被改动，
+        # 文件被占用/只读时还会抛 PermissionError；拷一份到临时目录交给它写。
+        cookie_tmp_dir, cookie_tmp = douyin.temp_cookie_copy(cookie_path)
         opts["cookiefile"] = str(cookie_tmp)   # Netscape 格式，扩展导出即用
     if not proxy:
         proxy = douyin.detect_system_proxy()
