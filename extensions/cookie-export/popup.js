@@ -1,8 +1,12 @@
-// 多平台 Cookie 导出：抖音 / 小红书 / 快手 / X / Instagram（Netscape 格式，含 HttpOnly）
+// 多平台 Cookie 导出：抖音 / 小红书 / 快手 / YouTube / X / Instagram（Netscape 格式，含 HttpOnly）
 const SITES = {
   'btn-dy':  { domain: '.douyin.com',       file: 'douyin_cookies.txt',   name: '抖音' },
   'btn-xhs': { domain: '.xiaohongshu.com',  file: 'xhs_cookies.txt',      name: '小红书' },
   'btn-ks':  { domain: '.kuaishou.com',     file: 'kuaishou_cookies.txt', name: '快手' },
+  // YouTube 的登录态跨两个域：`.youtube.com` 放 VISITOR_INFO1_LIVE/LOGIN_INFO 一类，
+  // 而 Google 账号的 SID/SAPISID/__Secure-*PSID 系列在 `.google.com` 上（实测 Edge 配置即如此）。
+  // 只导 youtube.com 会缺认证 Cookie，yt-dlp 认不出登录态，故两域一起导。
+  'btn-yt':  { domains: ['.youtube.com', '.google.com'], file: 'youtube_cookies.txt', name: 'YouTube' },
   'btn-tw':  { domain: '.x.com',            file: 'twitter_cookies.txt',  name: 'X' },
   'btn-ig':  { domain: '.instagram.com',    file: 'instagram_cookies.txt', name: 'Instagram' },
 };
@@ -11,9 +15,12 @@ async function exportSite(btnId) {
   const status = document.getElementById('status');
   const site = SITES[btnId];
   try {
-    const cookies = await chrome.cookies.getAll({ domain: site.domain });
+    const domains = site.domains || [site.domain];
+    const lists = await Promise.all(domains.map((d) => chrome.cookies.getAll({ domain: d })));
+    const cookies = lists.flat();
     if (!cookies.length) {
-      status.textContent = `没找到${site.name} Cookie。请先打开并登录对应网站（${site.domain.replace(/^\./, 'www.')}），再点一次。`;
+      const host = domains[0].replace(/^\./, 'www.');
+      status.textContent = `没找到${site.name} Cookie。请先打开并登录对应网站（${host}），再点一次。`;
       return;
     }
     const lines = ['# Netscape HTTP Cookie File'];

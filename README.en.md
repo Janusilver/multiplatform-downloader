@@ -1,4 +1,4 @@
-﻿# multiplatform-downloader · Multi-Platform Watermark-Free Downloader
+# multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
 Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **YouTube videos** (single video / playlist, auto-merged audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels. Seven platforms, one window.
 
@@ -47,13 +47,13 @@ For people who don't want Python: **clone or download this repo, then double-cli
 | File | Purpose |
 |---|---|
 | `release\多平台下载器.exe` | Main program, double-click to run |
-| `extensions\cookie-export\` | Browser extension: export Douyin / Xiaohongshu / Kuaishou / X / Instagram cookies (Bilibili needs none) |
+| `extensions\cookie-export\` | Browser extension: export Douyin / Xiaohongshu / Kuaishou / YouTube / X / Instagram cookies (Bilibili needs none) |
 | `douyin_cookies.txt` | Douyin cookie (**required**), placed next to the exe |
 | `xhs_cookies.txt` | Xiaohongshu cookie (recommended), next to the exe |
 | `kuaishou_cookies.txt` | Kuaishou cookie (recommended), next to the exe |
 | `twitter_cookies.txt` | X cookie (recommended, login wall), next to the exe |
 | `instagram_cookies.txt` | Instagram cookie (recommended, anonymous usually fails), next to the exe |
-| `youtube_cookies.txt` | YouTube cookie (optional; public videos need none, only members / age-restricted) |
+| `youtube_cookies.txt` | YouTube cookie (optional; public videos need none, only members / age-restricted; the extension exports the `.google.com` domain too, where the login cookies live) |
 
 **First run (4 steps):**
 
@@ -98,7 +98,7 @@ multiplatform-downloader/
 ├── release/
 │   └── 多平台下载器.exe  # Ready-to-run exe
 ├── extensions/
-│   └── cookie-export/   # Five-platform cookie export extension
+│   └── cookie-export/   # Six-platform cookie export extension
 ├── douyin_cookies.txt   # [PRIVATE] Douyin cookie, gitignored
 ├── xhs_cookies.txt      # [PRIVATE] Xiaohongshu cookie, gitignored
 ├── kuaishou_cookies.txt # [PRIVATE] Kuaishou cookie, gitignored
