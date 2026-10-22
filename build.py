@@ -38,11 +38,17 @@ os.environ["PATH"] = os.pathsep.join(
     prefer + [p for p in os.environ.get("PATH", "").split(os.pathsep) if p and _keep_path(p)]
 )
 
-# ⚠️ 不要设置 TCL_LIBRARY / TK_LIBRARY。
-# PyInstaller 6.x 自己把 tcl/tk 数据放到 `_internal/_tcl_data`；一旦在构建环境里显式指定
-# TCL_LIBRARY（曾经为避开本机旧 Tcl 而这样写过），PyInstaller 会按该路径收集、运行时 Tk 却
-# 去 `_internal/_tcl_data` 找 init.tcl，直接报 `Can't find a usable init.tcl`（2026-10-22 实测）。
-# 让 PyInstaller 用自带的 hook 收集即可。
+# 显式指定 tcl/tk 数据目录（Anaconda/conda 布局；标准 CPython 会自动定位，跳过即可）。
+# 必须设：本机 Graphviz / SPSS / 旧版 Python 自带旧 Tcl（8.6.10），若它们在 PATH 里排在
+# Anaconda 之前，PyInstaller 收集 tkinter 依赖时会误抓它们的 tcl/tk → 打出的 exe 一运行
+# 就报 `Can't find a usable init.tcl`（2026-10-22 实测：删掉这段后 onedir/onefile 都起不来）。
+tcl_dir = base / "Library" / "lib" / "tcl8.6"
+if tcl_dir.is_dir():
+    os.environ["TCL_LIBRARY"] = str(tcl_dir)
+    os.environ["TK_LIBRARY"] = str(tcl_dir.with_name("tk8.6"))
+    print(f"[*] TCL_LIBRARY = {tcl_dir}")
+else:
+    print("[*] 非 conda 布局，交给 PyInstaller 自动定位 tcl/tk")
 
 # ---- exe 版本资源 ----
 # Windows「属性 → 详细信息」里显示版本/产品名的来源；版本号以 gui.py 的 APP_VERSION 为
