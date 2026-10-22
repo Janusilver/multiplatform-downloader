@@ -72,7 +72,8 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         # yt-dlp 退出时会把更新后的 cookiejar 写回 cookiefile，直接传用户的导出文件会被改动，
         # 文件被占用/只读时还会抛 PermissionError；拷一份到临时目录交给它写。
         cookie_tmp_dir, cookie_tmp = douyin.temp_cookie_copy(cookie_path)
-        opts["cookiefile"] = str(cookie_tmp)   # Netscape 格式，扩展导出即用
+        if cookie_tmp is not None:          # 契约允许 (None, None)，别把 "None" 交给 yt-dlp
+            opts["cookiefile"] = str(cookie_tmp)   # Netscape 格式，扩展导出即用
     if not proxy:
         proxy = douyin.detect_system_proxy()
         if proxy:

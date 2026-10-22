@@ -249,7 +249,7 @@ class App:
         yrow.pack(fill="x", padx=10)
         self.yt_playlist_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
-            yrow, text="YouTube：下载整个播放列表（仅对带 list 的链接生效，默认只下当前视频）",
+            yrow, text="YouTube：下载整个播放列表（默认单条）",
             variable=self.yt_playlist_var).pack(side="left")
 
         drow = ttk.Frame(root)
