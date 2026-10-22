@@ -94,6 +94,7 @@
     - 全程 `.part`/`.tmp` **零残留**。判据：`is_live` 用 `live_photo_type==1`/`clip_type==5` 权威字段。
 - **2026-10-17 抖音 detail 签名升级 + 浏览器兜底实测**：链接 `v.douyin.com/C1hdlP35cQ0`（「蚩奼 国服」，作者 熊酱）：requests 直连 detail 403 → `douyin_browser.py` 抓到响应 200（65KB）→ 按 `bit_rate` 选到 `normal_1080_0`（1080×1920、1724kbps、2.16MB）→ 下载成功、抽帧目检**无平台水印**、`.part` 零残留。对照旧逻辑（`play_addr.url_list[0]`）只有 540p / 1.43MB。`douyin.py` 端到端跑通（文件 2161967 字节，与手工下载一致），`tests/test_urls.py` 35 条无回归，三脚本 `py_compile` 通过。**注意**：本机验证成功路径是用 `E:\Anaconda\python.exe`（项目外路径）跑的，项目 venv 跑会撞卡巴斯基那条（见「坑」）。
 - 打包：本地 PyInstaller 实测通过（**v1.5.0 起 57.2MB，七平台含 YouTube**；`curl_cffi` / `yt_dlp` 均已进包；本地构建 49s，py_compile 与 56 条单测全过）。
+- **2026-10-22 打包三坑（全踩过）**：① 构建环境里**不要设 `TCL_LIBRARY` / `TK_LIBRARY`**——PyInstaller 6.x 把 tcl 数据放 `_internal/_tcl_data`，显式设了会让运行时找不到 `init.tcl`（`Can't find a usable init.tcl`）；② 本机 **PyInstaller 6.22 的 onefile 引导器给解包目录设自定义 DACL**，被系统/安全策略拒绝 → 启动弹 `Could not create temporary directory!`；同一份代码用 **onedir** 打包可正常跑（Release 同时提供 `multiplatform-downloader-onedir.zip`）；③ **重新打包前必须先关掉正在运行的 exe**，否则 `dist` 文件被占用报 `PermissionError: [WinError 32]`。
 
 ## 跨助手同步（Claude Code ↔ ZCode）
 - 本目录下 `CLAUDE.md` 与 `AGENTS.md` 内容完全相同，分别是 Claude Code 与 ZCode 的载体；改任一份都必须同步覆盖另一份（`Copy-Item CLAUDE.md AGENTS.md -Force`），只改一边必分叉。
