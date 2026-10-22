@@ -31,3 +31,5 @@ dist/
 Thumbs.db
 .DS_Store
 error.log
+
+mpl_version_info.txt
