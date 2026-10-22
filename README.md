@@ -13,9 +13,7 @@
 
 ## 📸 界面预览
 
-| 主界面 | 下载历史 |
-|---|---|
-| ![主界面](docs/gui-main.png) | ![下载历史](docs/gui-history.png) |
+![主界面](docs/gui-main.png)
 
 ## ✨ 功能特性
 
