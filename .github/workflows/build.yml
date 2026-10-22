@@ -35,14 +35,9 @@ jobs:
           Path("ffmpeg").mkdir(exist_ok=True)
           shutil.copy2(imageio_ffmpeg.get_ffmpeg_exe(), "ffmpeg/ffmpeg.exe")
 
-      - name: Build exe
+      - name: Build exe（走 build.py：含 Windows 版本资源 FileVersion/ProductName）
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed `
-            --name 多平台下载器 `
-            --collect-all yt_dlp `
-            --collect-all curl_cffi `
-            --add-data "ffmpeg/ffmpeg.exe;ffmpeg" `
-            gui.py
+          python build.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

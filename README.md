@@ -42,8 +42,6 @@
 
 > ℹ️ `release\` 里的 exe 是 **v1.5.0**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
 
-> 💡 如果双击 exe 报 **「Could not create temporary directory / 无法建立临时目录」**（个别杀软或系统安全策略会拦 PyInstaller 的自解包），改下 Release 里的 **`multiplatform-downloader-onedir.zip`**，解压后运行文件夹里的 `多平台下载器.exe` 即可。
-
 **需要的东西**：
 
 | 文件 | 作用 |
