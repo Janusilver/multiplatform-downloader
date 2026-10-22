@@ -1,6 +1,6 @@
 # multiplatform-downloader · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。六个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）、**YouTube 视频**（单条 / 播放列表，自动合并音视频），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。七个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -25,6 +25,7 @@
 | 小红书 | 图文无水印原图、动图 mp4、视频（网页流可能带小红书号水印） | 建议（匿名可能被风控） |
 | 快手 | 无水印视频、图集 | 建议（匿名可用） |
 | B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
+| YouTube | 单条视频 / Shorts / 播放列表，优先 H.264 mp4 并自动合并音轨 | ❌ 公开视频不需要（会员/年龄限制才要） |
 | X (Twitter) | 单条推文（视频 / 图片），天然无水印 | 建议（匿名可能被登录墙挡住） |
 | Instagram | 帖子图集 / Reels，天然无水印（用户主页批量暂不可用） | 建议（匿名大概率失败） |
 
@@ -52,6 +53,7 @@
 | `kuaishou_cookies.txt` | 快手 Cookie（建议），放到 exe 旁边 |
 | `twitter_cookies.txt` | X Cookie（建议，匿名可能被登录墙挡住），放到 exe 旁边 |
 | `instagram_cookies.txt` | Instagram Cookie（建议，匿名大概率失败），放到 exe 旁边 |
+| `youtube_cookies.txt` | YouTube Cookie（可选，公开视频不需要；会员 / 年龄限制视频才要） |
 
 **首次使用（4 步）**：
 
@@ -78,13 +80,15 @@ multiplatform-downloader/
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
 ├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
 ├── twitter.py           # X 下载器（yt-dlp 封装）
+├── youtube.py           # YouTube 下载器（yt-dlp 封装：单条 / 播放列表）
 ├── instagram.py         # Instagram 下载器（自研私有 API，curl_cffi 伪装 Chrome TLS）
 ├── tests/test_urls.py   # URL 识别单测（免联网纯 assert）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── xhs.bat              # 小红书下载入口（双击运行）
 ├── kuaishou.bat         # 快手下载入口（双击运行）
 ├── bilibili.bat         # B站下载入口（双击运行）
-├── gui.py               # 六平台一体 GUI 入口（PyInstaller 打包用）
+├── youtube.bat          # YouTube 下载入口（双击运行，可选整列表）
+├── gui.py               # 七平台一体 GUI 入口（PyInstaller 打包用）
 ├── build.bat            # 打包入口：装依赖 + 调 build.py
 ├── build.py             # PyInstaller 打包脚本（自动排除 tcl 干扰源）
 ├── .github/workflows/   # build.yml 自动打包 release；sync-meta.yml 同步 Release 正文
@@ -181,6 +185,30 @@ pip install requests yt-dlp curl_cffi
 
 1080p / 4K 需要大会员，免费用户自动下载最高可用画质，视频 + 音轨用 ffmpeg 合并为一个 mp4。
 
+## ▶️ YouTube 下载
+
+**需要代理**（YouTube 在境外，Clash 打开「系统代理」后程序会自动读取；或手动 `--proxy http://127.0.0.1:7890`）。公开视频无需 Cookie，会员 / 年龄限制 / 私密视频才需要导出 `youtube_cookies.txt`。
+
+```bash
+.venv\Scripts\python.exe youtube.py "https://youtu.be/xxxx"                       # 单条
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/watch?v=xxxx"        # 单条
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/shorts/xxxx"         # Shorts
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/playlist?list=PLxxx" # 整个播放列表
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/watch?v=xxx&list=PLxxx" --playlist  # 该列表全下
+```
+
+**链接怎么判定**：
+
+| 链接形态 | 默认行为 |
+|---|---|
+| `youtu.be/ID`、`/shorts/ID`、`/live/ID`、`watch?v=ID` | 单条视频 |
+| `watch?v=ID&list=PL…` | **只下当前视频**（加 `--playlist` 才下整个列表；GUI 里有对应复选框） |
+| `playlist?list=PL…` | 整个列表，默认最多 `--max 20` 条，存到 `downloads/列表名/` |
+| `list=RD…`（自动生成的 Mix / 电台） | 按单条处理（无限流，不当下载列表） |
+| `@频道`、`/channel/`、`/c/` | 不支持，会明确提示 |
+
+画质优先 **H.264 + m4a（兼容性最好，多数视频 1080p）**，自动用 ffmpeg 合并为 mp4；没有 H.264 档的 4K 视频退回最佳画质。若报 `HTTP Error 403 Forbidden`：属 YouTube 对当前代理出口的限流，等几分钟 / 换节点 / 更新 yt-dlp 再试。
+
 ## 🐦 X / 📷 Instagram 下载
 
 - **X**：走 yt-dlp，支持**单条推文**（`/status/ID`）；**主页批量暂不支持**（yt-dlp 无 X 用户主页提取器）。媒体是原始 CDN 直链，**天然无水印**。
@@ -208,6 +236,8 @@ pip install requests yt-dlp curl_cffi
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
+| YouTube 下载报 `HTTP Error 403 Forbidden` | YouTube 对当前代理出口限流：等几分钟再试 / 换代理节点 / 更新 yt-dlp（`pip install -U yt-dlp`）；登录态内容导出 `youtube_cookies.txt`。注意它**必须走代理**，直连大概率超时 |
+| YouTube 粘贴了带 `&list=` 的链接却只下了一条 | 默认只下当前视频；要整个列表请加 `--playlist`（GUI 勾选「下载整个播放列表」）或改用 `playlist?list=` 链接 |
 | exe 双击没反应 / 一直转圈 | **首次启动**需解压 55MB + 杀毒软件扫描，等 30–60 秒属正常（鼠标转圈）；第二次起只需 3–15 秒；报错看同目录 `error.log` |
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
 | X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |

@@ -1,6 +1,6 @@
 # multiplatform-downloader · Multi-Platform Watermark-Free Downloader
 
-Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels. Six platforms, one window.
+Paste a share link and download **watermark-free albums/images, Live Photos (still + motion mp4), and videos** from **Douyin / Xiaohongshu (RedNote) / Kuaishou**, **Bilibili videos** (BV/av numbers, b23.tv, auto-merged best quality + audio), **YouTube videos** (single video / playlist, auto-merged audio), **X (Twitter)** watermark-free single tweets, and **Instagram** watermark-free posts / Reels. Seven platforms, one window.
 
 > A personal tool for **personal archiving & learning**. Respect creators' copyright — do not redistribute watermark-free content.
 
@@ -25,6 +25,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 | Xiaohongshu | Watermark-free images, Live Photo mp4, videos (web streams may carry a 小红书号 watermark) | recommended (anonymous may be risk-blocked) |
 | Kuaishou | Watermark-free videos, albums | recommended (works anonymously) |
 | Bilibili | Video + audio auto-merged; bare BV number accepted | ❌ none |
+| YouTube | Single video / Shorts / playlists; H.264 mp4 preferred, audio auto-merged | ❌ none for public videos (only members/age-restricted) |
 | X (Twitter) | Single tweets (videos/images); naturally watermark-free | recommended (anonymous may hit the login wall) |
 | Instagram | Post albums / Reels; naturally watermark-free (user-profile batches currently unavailable) | recommended (anonymous usually fails) |
 
@@ -52,6 +53,7 @@ For people who don't want Python: **clone or download this repo, then double-cli
 | `kuaishou_cookies.txt` | Kuaishou cookie (recommended), next to the exe |
 | `twitter_cookies.txt` | X cookie (recommended, login wall), next to the exe |
 | `instagram_cookies.txt` | Instagram cookie (recommended, anonymous usually fails), next to the exe |
+| `youtube_cookies.txt` | YouTube cookie (optional; public videos need none, only members / age-restricted) |
 
 **First run (4 steps):**
 
@@ -78,13 +80,15 @@ multiplatform-downloader/
 ├── xhs.py               # Xiaohongshu downloader (curl_cffi Chrome impersonation)
 ├── kuaishou.py          # Kuaishou downloader (__APOLLO_STATE__ parsing)
 ├── twitter.py           # X downloader (yt-dlp wrapper)
+├── youtube.py           # YouTube downloader (yt-dlp wrapper: single video / playlist)
 ├── instagram.py         # Instagram downloader (self-built private API, curl_cffi Chrome impersonation)
 ├── tests/test_urls.py   # URL-recognition unit tests (offline, plain asserts)
 ├── douyin.bat           # Douyin entry (double-click)
 ├── xhs.bat              # Xiaohongshu entry (double-click)
 ├── kuaishou.bat         # Kuaishou entry (double-click)
 ├── bilibili.bat         # Bilibili entry (double-click)
-├── gui.py               # Six-platform GUI (PyInstaller entry)
+├── youtube.bat          # YouTube entry (double-click, optional whole playlist)
+├── gui.py               # Seven-platform GUI (PyInstaller entry)
 ├── build.bat            # Build entry: installs deps + runs build.py
 ├── build.py             # PyInstaller script (filters out tcl interference)
 ├── .github/workflows/   # build.yml: auto-release; sync-meta.yml: fills Release notes
@@ -179,6 +183,30 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 
 1080p / 4K need a premium account; free users get the best available quality, merged into one mp4 with ffmpeg.
 
+## ▶️ YouTube
+
+**A proxy is required** (YouTube is blocked in mainland China; the app reads the Windows system proxy automatically, or pass `--proxy http://127.0.0.1:7890`). Public videos need no cookie; members-only / age-restricted / private videos need `youtube_cookies.txt`.
+
+```bash
+.venv\Scripts\python.exe youtube.py "https://youtu.be/xxxx"                       # single
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/watch?v=xxxx"        # single
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/shorts/xxxx"         # Shorts
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/playlist?list=PLxxx" # whole playlist
+.venv\Scripts\python.exe youtube.py "https://www.youtube.com/watch?v=xxx&list=PLxxx" --playlist  # this playlist
+```
+
+How links are interpreted:
+
+| Link form | Default behaviour |
+|---|---|
+| `youtu.be/ID`, `/shorts/ID`, `/live/ID`, `watch?v=ID` | single video |
+| `watch?v=ID&list=PL…` | **current video only** (add `--playlist` for the whole list; the GUI has the matching checkbox) |
+| `playlist?list=PL…` | whole playlist, capped at `--max 20` items, saved under `downloads/<playlist title>/` |
+| `list=RD…` (auto-generated Mix/radio) | treated as a single video (endless stream) |
+| `@channel`, `/channel/`, `/c/` | unsupported, clear message |
+
+Quality prefers **H.264 + m4a** (best compatibility, usually up to 1080p) and merges to mp4 with ffmpeg; videos without H.264 fall back to best quality. `HTTP Error 403 Forbidden` means YouTube is throttling the current proxy exit IP — wait a few minutes / switch node / update yt-dlp (`pip install -U yt-dlp`) and retry.
+
 ## 🐦 X / 📷 Instagram
 
 - **X**: via yt-dlp, supports **single tweets** (`/status/ID`); **user-profile batches are not supported** (yt-dlp has no X profile extractor). Media are original CDN links, **naturally watermark-free**.
@@ -206,6 +234,8 @@ No cookie needed. Double-click `bilibili.bat` and paste:
 | Xiaohongshu video has a 小红书号 watermark | The note has no original-file source; web streams carry it — platform behavior, not bypassable |
 | Album images watermarked | Update to the latest version; new builds use watermark-free sources |
 | Bilibili ffmpeg errors | Make sure `ffmpeg\ffmpeg.exe` exists (see Install) |
+| YouTube returns `HTTP Error 403 Forbidden` | YouTube is throttling the current proxy exit IP — wait a few minutes / switch node / update yt-dlp (`pip install -U yt-dlp`); export `youtube_cookies.txt` for logged-in content. Note it **requires a proxy**; direct connections usually time out |
+| YouTube link with `&list=` downloaded only one video | By default only the current video is fetched; add `--playlist` (or tick the GUI checkbox) / use a `playlist?list=` link for the whole list |
 | exe won't start / keeps spinning | **First run** unpacks 55 MB + antivirus scans it — waiting 30–60 s is normal (busy cursor); subsequent runs take 3–15 s; check `error.log` next to the exe |
 | Rebuilt after editing code, but startup still prompts to download an update | The check compares the **version baked into the exe vs the latest GitHub release tag**; if you changed code but didn't bump `APP_VERSION` (top of gui.py) before packaging, the exe is still behind and it will keep prompting. Always bump the version and tag when you repackage |
 | X login wall / can't download | Export `twitter_cookies.txt`; X is hosted overseas — set a proxy via the GUI "代理" box or `--proxy http://127.0.0.1:7890` |

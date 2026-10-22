@@ -22,6 +22,10 @@ try:
     import twitter
 except ModuleNotFoundError:
     twitter = None
+try:
+    import youtube
+except ModuleNotFoundError:
+    youtube = None
 
 import douyin
 import kuaishou
@@ -82,6 +86,50 @@ def main() -> int:
         f += check("instagram.is_profile", instagram.is_profile, [
             ("https://www.instagram.com/jack", True),
             ("https://www.instagram.com/p/CxAb12345", False),
+        ])
+    if youtube is None:
+        print("[FAIL] youtube 模块缺失\n")
+        f += 1
+    else:
+        f += check("youtube.extract_url", youtube.extract_url, [
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+             "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://youtu.be/dQw4w9WgXcQ", "https://youtu.be/dQw4w9WgXcQ"),
+            ("https://www.youtube.com/shorts/abcdefghijk",
+             "https://www.youtube.com/shorts/abcdefghijk"),
+            ("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=10",
+             "https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=10"),
+            # 分享文案里取出链接（中文/标点不能吃进去）
+            ("看这个 https://youtu.be/dQw4w9WgXcQ 不错吧",
+             "https://youtu.be/dQw4w9WgXcQ"),
+            # 站外域名冒充
+            ("https://evil.com/youtube.com/watch?v=x", None),
+            ("https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ", None),
+            # 频道主页不支持
+            ("https://www.youtube.com/@somechannel", None),
+            # 其他平台
+            ("https://www.douyin.com/video/123", None),
+        ])
+        f += check("youtube.kind", youtube.kind, [
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "video"),
+            ("https://youtu.be/dQw4w9WgXcQ", "video"),
+            ("https://www.youtube.com/shorts/abcdefghijk", "video"),
+            ("https://www.youtube.com/playlist?list=PL1234567890", "playlist"),
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1234567890", "video+playlist"),
+            # list=RD… 是自动生成的 Mix/电台（无限流），按单条处理
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ", "video"),
+            ("https://www.youtube.com/@channel", None),
+        ])
+        f += check("youtube.should_download_playlist", lambda u: youtube.should_download_playlist(u, False), [
+            # 默认：纯列表链接下整列表，watch+list 只下当前视频
+            ("https://www.youtube.com/playlist?list=PL1234567890", True),
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1234567890", False),
+            ("https://youtu.be/dQw4w9WgXcQ", False),
+        ])
+        f += check("youtube.should_download_playlist(want=True)",
+                   lambda u: youtube.should_download_playlist(u, True), [
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1234567890", True),
+            ("https://youtu.be/dQw4w9WgXcQ", False),
         ])
     # 兜底分支的域名白名单：站外域名必须返回 None，否则下游会把登录 Cookie 发给该 host
     note = "a" * 24                                    # 笔记 ID 形如 24 位十六进制

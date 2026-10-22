@@ -48,6 +48,7 @@ XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
 KS_COOKIE_PATH = BASE / "kuaishou_cookies.txt"
 TW_COOKIE_PATH = BASE / "twitter_cookies.txt"
 IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
+YT_COOKIE_PATH = BASE / "youtube_cookies.txt"
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
 HISTORY_MAX = 200
@@ -126,6 +127,13 @@ def classify(text: str) -> tuple[str | None, str | None]:
     if m:
         return "bili", _normalize_bili(m.group(0).rstrip("/"))
     try:
+        import youtube
+        u = youtube.extract_url(text)
+        if u:
+            return "youtube", u
+    except ImportError:
+        pass
+    try:
         import xhs
         m = xhs.URL_RE.search(text)
         if m:
@@ -160,7 +168,7 @@ def classify_all(text: str) -> list[tuple[str, str]]:
     """识别文本里所有分享链接（跨平台），按出现顺序返回 [(平台, URL), ...]，去重。
     classify 只取第一个匹配，剪贴板里常含多条链接，这里用 finditer 全量遍历。"""
     pats: list[tuple[str, object]] = [("douyin", douyin.URL_RE), ("bili", BILI_RE)]
-    for mod_name in ("xhs", "kuaishou", "twitter", "instagram"):
+    for mod_name in ("xhs", "kuaishou", "twitter", "instagram", "youtube"):
         try:
             pats.append((mod_name, __import__(mod_name).URL_RE))
         except ImportError:
@@ -171,6 +179,8 @@ def classify_all(text: str) -> list[tuple[str, str]]:
             url = m.group(0).rstrip("/")
             if platform == "bili":
                 url = _normalize_bili(url)
+            elif platform == "youtube":
+                url = __import__("youtube").extract_url(url) or url
             found.append((m.start(), platform, url))
     found.sort(key=lambda t: t[0])                       # 按在文本里的位置排序，保持原顺序
     out: list[tuple[str, str]] = []
@@ -203,7 +213,7 @@ class App:
         self._last_pct = ""
         self.out_dir = OUT_DIR
         self.history = load_history()
-        root.title(f"抖音 / 小红书 / 快手 / B站 / X / Instagram 下载器 v{APP_VERSION}")
+        root.title(f"抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器 v{APP_VERSION}")
         root.geometry("580x600")
         root.minsize(480, 440)
 
@@ -234,6 +244,13 @@ class App:
             self.proxy_var.set(system_proxy)
         self.proxy_entry = ttk.Entry(prow, textvariable=self.proxy_var, width=30)
         self.proxy_entry.pack(side="left", fill="x", expand=True)
+
+        yrow = ttk.Frame(root)
+        yrow.pack(fill="x", padx=10)
+        self.yt_playlist_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            yrow, text="YouTube：下载整个播放列表（仅对带 list 的链接生效，默认只下当前视频）",
+            variable=self.yt_playlist_var).pack(side="left")
 
         drow = ttk.Frame(root)
         drow.pack(fill="x", padx=10)
@@ -303,7 +320,7 @@ class App:
     # ---------- 日志 ----------
     def _welcome(self) -> None:
         self._post("=" * 44)
-        self._post("  抖音 / 小红书 / 快手 / B站 / X / Instagram 下载器")
+        self._post("  抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器")
         self._post("=" * 44)
         if COOKIE_PATH.exists():
             cookie = douyin.load_cookie_str(str(COOKIE_PATH))
@@ -326,6 +343,10 @@ class App:
             self._post(f"[OK] 已找到 Instagram Cookie（可选，匿名大概率失败）")
         else:
             self._post("[!] 未找到 instagram_cookies.txt —— IG 匿名大概率失败")
+        if YT_COOKIE_PATH.exists():
+            self._post("[OK] 已找到 YouTube Cookie（可选，会员/年龄限制视频需要）")
+        else:
+            self._post("[*] 未找到 youtube_cookies.txt —— 公开视频不需要，走代理即可")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists() and KS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
@@ -487,6 +508,8 @@ class App:
                         ok = self._run_twitter(url)
                     elif platform == "instagram":
                         ok = self._run_instagram(url)
+                    elif platform == "youtube":
+                        ok = self._run_youtube(url)
                     else:
                         ok = self._run_bili(url)
                 except Exception as e:
@@ -565,6 +588,17 @@ class App:
         cookie = str(TW_COOKIE_PATH) if TW_COOKIE_PATH.exists() else ""
         proxy = self.proxy_var.get().strip()
         return twitter.process(url, self.out_dir, cookie_path=cookie, proxy=proxy)
+
+    def _run_youtube(self, url: str) -> bool:
+        try:
+            import youtube
+        except ImportError as e:
+            self._post(f"  [!] YouTube 依赖缺失（yt-dlp）：{e}")
+            return False
+        cookie = str(YT_COOKIE_PATH) if YT_COOKIE_PATH.exists() else ""
+        return youtube.process(url, self.out_dir, cookie_path=cookie,
+                               proxy=self.proxy_var.get().strip(),
+                               playlist=self.yt_playlist_var.get())
 
     def _run_instagram(self, url: str) -> bool:
         try:
