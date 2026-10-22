@@ -42,6 +42,8 @@ For people who don't want Python: **clone or download this repo, then double-cli
 
 > ℹ️ The exe in `release\` is **v1.5.0** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
 
+> 💡 If double-clicking the exe shows **"Could not create temporary directory"** (some AV or security policies block PyInstaller's self-extraction), download **`multiplatform-downloader-onedir.zip`** from the Release instead and run the `多平台下载器.exe` inside the extracted folder.
+
 **You need these files:**
 
 | File | Purpose |
