@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/快手/B站/X/Instagram，单文件 GUI）。"""
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -45,10 +47,42 @@ if tcl_dir.is_dir():
 else:
     print("[*] 非 conda 布局，交给 PyInstaller 自动定位 tcl/tk")
 
+# ---- exe 版本资源 ----
+# Windows「属性 → 详细信息」里显示版本/产品名的来源；版本号以 gui.py 的 APP_VERSION 为
+# 唯一真相，构建时生成 PyInstaller version file（不落仓库，避免与 APP_VERSION 分叉）。
+_m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', (BASE / "gui.py").read_text(encoding="utf-8"))
+if not _m:
+    sys.exit("[FAIL] gui.py 里找不到 APP_VERSION")
+ver = _m.group(1)
+ver_tuple = tuple(int(x) for x in (ver.split(".") + ["0", "0", "0"])[:4])
+version_file = Path(tempfile.gettempdir()) / "mpl_version_info.txt"
+version_file.write_text(
+    f"""# UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers={ver_tuple}, prodvers={ver_tuple}, mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('CompanyName', 'Janusilver'),
+      StringStruct('FileDescription', '多平台下载器 - 抖音/小红书/快手/B站/YouTube/X/Instagram'),
+      StringStruct('FileVersion', '{ver}'),
+      StringStruct('InternalName', 'multiplatform-downloader'),
+      StringStruct('OriginalFilename', '多平台下载器.exe'),
+      StringStruct('ProductName', '多平台下载器'),
+      StringStruct('ProductVersion', '{ver}'),
+      StringStruct('LegalCopyright', 'Copyright (C) 2026 Janusilver'),
+    ])]),
+    VarFileInfo([VarStruct('Translation', [2052, 1200])])
+  ]
+)
+""",
+    encoding="utf-8")
+print(f"[*] 版本资源 = {ver}")
+
 cmd = [
     sys.executable, "-m", "PyInstaller",
     "--noconfirm", "--clean", "--onefile", "--windowed",
     "--name", "多平台下载器",
+    "--version-file", str(version_file),
     "--collect-all", "yt_dlp",
     "--collect-all", "curl_cffi",
     "--add-data", f"ffmpeg{os.sep}ffmpeg.exe;ffmpeg",

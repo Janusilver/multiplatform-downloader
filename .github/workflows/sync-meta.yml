@@ -42,8 +42,9 @@ jobs:
                   return e.code, json.loads(e.read() or b"{}")
 
           BODY = ("## 更新内容\n"
-                  "- 六平台一体：抖音 / 小红书 / 快手 / B站 / X (Twitter) / Instagram 无水印下载\n"
+                  "- 七平台一体：抖音 / 小红书 / 快手 / B站 / YouTube / X (Twitter) / Instagram 无水印下载\n"
                   "- 抖音：detail 接口改浏览器现场签名，程序自动调用本机 Chrome/Edge 兜底；视频按码率取最高画质\n"
+                  "- YouTube：单条 / Shorts / Live / 播放列表（默认只下当前视频，--playlist 下整列表，默认最多 20 条）\n"
                   "- 小红书：图文原图 + 实况动图 + 视频\n"
                   "- X：单条推文下载（yt-dlp；主页批量暂不支持）\n"
                   "- Instagram：单条帖子 / Reels（图集图片+视频全提取）；用户主页批量暂不可用（IG 限流）\n"

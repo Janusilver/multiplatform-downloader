@@ -1,0 +1,17 @@
+# UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers=(1, 5, 0, 0), prodvers=(1, 5, 0, 0), mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('CompanyName', 'Janusilver'),
+      StringStruct('FileDescription', '多平台下载器 - 抖音/小红书/快手/B站/YouTube/X/Instagram'),
+      StringStruct('FileVersion', '1.5.0'),
+      StringStruct('InternalName', 'multiplatform-downloader'),
+      StringStruct('OriginalFilename', '多平台下载器.exe'),
+      StringStruct('ProductName', '多平台下载器'),
+      StringStruct('ProductVersion', '1.5.0'),
+      StringStruct('LegalCopyright', 'Copyright (C) 2026 Janusilver'),
+    ])]),
+    VarFileInfo([VarStruct('Translation', [2052, 1200])])
+  ]
+)

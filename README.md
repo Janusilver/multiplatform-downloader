@@ -40,7 +40,7 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.4.0**（含抖音「浏览器兜底」解析，需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ）。**YouTube 下载是之后新增的功能，尚未进这个 exe**——要用 YouTube 请用源码方式（`youtube.py` / `youtube.bat`）跑，或等下一个 Release。
+> ℹ️ `release\` 里的 exe 是 **v1.5.0**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
 
 **需要的东西**：
 

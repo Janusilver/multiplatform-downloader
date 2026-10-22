@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-抖音 / 小红书 / 快手 / B站 下载器（tkinter GUI，PyInstaller 打包 exe 用）
-抖音复用 douyin.py；小红书/快手分别复用 xhs.py / kuaishou.py；
-B站走 yt-dlp（用便携 ffmpeg 合并音视频）。
+抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器（tkinter GUI，PyInstaller 打包 exe 用）
+抖音复用 douyin.py；小红书/快手分别复用 xhs.py / kuaishou.py；B站 / YouTube 走 yt-dlp
+（用便携 ffmpeg 合并音视频）；X / Instagram 走各自模块。
 文件与 Cookie 均以 exe 所在目录为基准，双击即可用。
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -327,26 +327,20 @@ class App:
             self._post(f"[OK] 已找到抖音 Cookie（{len(cookie)} 字符）")
         else:
             self._post("[!] 未找到 douyin_cookies.txt —— 抖音下载不可用")
-        if XHS_COOKIE_PATH.exists():
-            self._post(f"[OK] 已找到小红书 Cookie（可选，登录后更稳）")
-        else:
-            self._post("[!] 未找到 xhs_cookies.txt —— 小红书匿名可用，可能被风控")
-        if KS_COOKIE_PATH.exists():
-            self._post(f"[OK] 已找到快手 Cookie（可选，登录后更稳）")
-        else:
-            self._post("[!] 未找到 kuaishou_cookies.txt —— 快手匿名可用")
-        if TW_COOKIE_PATH.exists():
-            self._post(f"[OK] 已找到 X Cookie（可选，匿名可能失败）")
-        else:
-            self._post("[!] 未找到 twitter_cookies.txt —— X 匿名可用，可能被登录墙挡住")
-        if IG_COOKIE_PATH.exists():
-            self._post(f"[OK] 已找到 Instagram Cookie（可选，匿名大概率失败）")
-        else:
-            self._post("[!] 未找到 instagram_cookies.txt —— IG 匿名大概率失败")
-        if YT_COOKIE_PATH.exists():
-            self._post("[OK] 已找到 YouTube Cookie（可选，会员/年龄限制视频需要）")
-        else:
-            self._post("[*] 未找到 youtube_cookies.txt —— 公开视频不需要，走代理即可")
+        # 可选 Cookie 合并成一行报告：缺哪个不影响启动，只影响那个平台的成功率
+        optional = [
+            (XHS_COOKIE_PATH, "xhs_cookies.txt"),
+            (KS_COOKIE_PATH, "kuaishou_cookies.txt"),
+            (TW_COOKIE_PATH, "twitter_cookies.txt"),
+            (IG_COOKIE_PATH, "instagram_cookies.txt"),
+            (YT_COOKIE_PATH, "youtube_cookies.txt"),
+        ]
+        have = [name for path, name in optional if path.exists()]
+        miss = [name for path, name in optional if not path.exists()]
+        if have:
+            self._post(f"[OK] 已找到可选 Cookie：{', '.join(have)}")
+        if miss:
+            self._post(f"[*] 未找到可选 Cookie（不影响启动，对应平台匿名跑）：{', '.join(miss)}")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists() and KS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
