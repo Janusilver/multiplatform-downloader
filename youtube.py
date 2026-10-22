@@ -127,7 +127,7 @@ def should_download_playlist(url: str, want_playlist: bool) -> bool:
     return False
 
 
-def _fmt_opts(out_dir: Path, ffmpeg_dir: Path) -> dict:
+def _fmt_opts(ffmpeg_dir: Path) -> dict:
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
@@ -161,8 +161,9 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
 
     want_list = should_download_playlist(url, playlist)
     ffmpeg_dir = Path(__file__).resolve().parent / "ffmpeg"
-    opts = _fmt_opts(out_dir, ffmpeg_dir)
+    opts = _fmt_opts(ffmpeg_dir)
     if want_list:
+        max_items = max(1, max_items)       # yt-dlp 的 playlist_items 不接受 1-0 / 1--5
         print(f"  [*] 下载播放列表（最多 {max_items} 条）...")
         opts["playlist_items"] = f"1-{max_items}"
         # 列表存到 downloads/列表名/ 子目录，避免和单条视频混在一起
@@ -180,7 +181,8 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
     if cookie_path and Path(cookie_path).exists():
         # yt-dlp 退出会把 cookiejar 写回 cookiefile，不能直接传用户的导出文件
         cookie_tmp_dir, cookie_tmp = douyin.temp_cookie_copy(cookie_path)
-        opts["cookiefile"] = str(cookie_tmp)
+        if cookie_tmp is not None:          # 契约允许 (None, None)，别把 "None" 交给 yt-dlp
+            opts["cookiefile"] = str(cookie_tmp)
     if not proxy:
         proxy = douyin.detect_system_proxy()
         if proxy:
