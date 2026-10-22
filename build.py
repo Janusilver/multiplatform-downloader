@@ -9,6 +9,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+# GitHub Actions 的 Windows runner 控制台是 cp1252，打中文会 UnicodeEncodeError → 强制 UTF-8
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError, OSError):
+    pass
+
 BASE = Path(__file__).resolve().parent
 
 # ---- 统一 Tcl/Tk 来源（Anaconda）----
