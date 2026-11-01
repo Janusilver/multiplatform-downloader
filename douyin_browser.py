@@ -218,11 +218,8 @@ def _cleanup(proc: subprocess.Popen | None, profile: str) -> None:
         time.sleep(0.5)
 
 
-def fetch_detail(aweme_id: str, timeout: float = 60) -> dict:
-    """起干净浏览器打开作品页，截 detail 响应并返回 aweme_detail。
-
-    失败抛 RuntimeError（未装浏览器 / 超时 / 页面要求登录 / 作品已删）。
-    """
+def _fetch_once(aweme_id: str, timeout: float) -> dict:
+    """单次尝试：起干净浏览器打开作品页，截 detail 响应。"""
     exe = find_browser()
     if not exe:
         raise RuntimeError("未找到 Chrome / Edge，无法用浏览器抓 detail")
@@ -255,11 +252,10 @@ def fetch_detail(aweme_id: str, timeout: float = 60) -> dict:
             elif method == "Network.loadingFinished" and params.get("requestId") in pending:
                 request_id = params["requestId"]
                 status = pending.pop(request_id)
-                body = cdp.wait_result(
-                    cdp.send("Network.getResponseBody", {"requestId": request_id}), 15)
-                raw = body.get("body", "")
-                text = base64.b64decode(raw).decode("utf-8") if body.get("base64Encoded") else raw
+                text = _read_body(cdp, request_id)
                 if status != 200:
+                    # 302/403 多为风控重定向/登录拦截，不是偶发抖动：交给用户停手等几分钟，
+                    # 别自动重试（重试会重置抖音的风控窗口）。
                     raise RuntimeError(f"浏览器请求 detail 返回 {status}：{text[:120]}")
                 detail = (json.loads(text).get("aweme_detail") or {})
                 if not detail:
@@ -270,6 +266,35 @@ def fetch_detail(aweme_id: str, timeout: float = 60) -> dict:
         if ws:
             ws.close()
         _cleanup(proc, profile)
+
+
+def _read_body(cdp: "_CDP", request_id: str) -> str:
+    """读响应体。失败时抛以「CDP 」开头的 RuntimeError（外层据此判为可重试的抖动）。"""
+    try:
+        body = cdp.wait_result(cdp.send("Network.getResponseBody", {"requestId": request_id}), 15)
+    except RuntimeError as e:      # -32000「No resource with given identifier found」等
+        raise RuntimeError(f"CDP 读响应体失败：{e}") from e
+    raw = body.get("body", "")
+    return base64.b64decode(raw).decode("utf-8") if body.get("base64Encoded") else raw
+
+
+def fetch_detail(aweme_id: str, timeout: float = 60) -> dict:
+    """起干净浏览器打开作品页，截 detail 响应并返回 aweme_detail。
+
+    失败抛 RuntimeError（未装浏览器 / 超时 / 页面要求登录 / 作品已删）。
+    浏览器/CDP 自身抖动（实测偶发 -32000 响应体被提前回收）换干净浏览器重试一次；
+    风控（非 200）与解析类错误不重试。
+    """
+    try:
+        return _fetch_once(aweme_id, timeout)
+    except RuntimeError as e:
+        if not str(e).startswith("CDP "):
+            raise
+        time.sleep(2)
+        try:
+            return _fetch_once(aweme_id, timeout)
+        except RuntimeError as e2:
+            raise RuntimeError(f"{e}；换浏览器重试一次仍失败：{e2}") from None
 
 
 if __name__ == "__main__":
