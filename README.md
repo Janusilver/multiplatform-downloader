@@ -38,9 +38,9 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.5.2**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+> ℹ️ `release\` 里的 exe 是 **v1.5.3**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
 >
-> **v1.5.2 相对 1.5.1 的修复**：快手部分作品是 m3u8 流，旧版会把播放列表文本存成坏 mp4（约 19 KB），现改用 ffmpeg 合并并自动重试候选档；各平台脚本下载失败时退出码改为非 0（批量/CI 可判定）；ffmpeg 查找改为按平台识别（Windows 用 `ffmpeg.exe`，Linux 用 `ffmpeg` 或系统 PATH）。Cookie 导出扩展同时支持导出 YouTube Cookie（v1.2）。
+> **v1.5.3 相对 1.5.2 的修复**：抖音浏览器兜底偶发 `CDP -32000 No resource with given identifier found`（响应已返回但浏览器提前回收了响应体，实测为偶发竞态）导致下载失败——现在只对这类浏览器/CDP 抖动自动换一个干净浏览器重试一次；命中风控（detail 返回 302/403）则不重试，直接提示稍等几分钟再试。
 
 **需要的东西**：
 
