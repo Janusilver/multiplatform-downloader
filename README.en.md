@@ -38,9 +38,9 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
-> ℹ️ The exe in `release\` is **v1.5.2** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
+> ℹ️ The exe in `release\` is **v1.5.3** and covers all seven platforms (Douyin / Xiaohongshu / Kuaishou / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
 >
-> **What v1.5.2 fixes over 1.5.1**: some Kuaishou items are m3u8 streams — the old build saved the playlist text as a broken ~19 KB mp4; now ffmpeg merges it and retries candidate streams. Scripts now exit non-zero on failure (batch/CI friendly). ffmpeg lookup is platform-aware (Windows `ffmpeg.exe`, Linux `ffmpeg` or system PATH). The Cookie-export extension (v1.2) also exports the YouTube cookie.
+> **What v1.5.3 fixes over 1.5.2**: the Douyin browser fallback occasionally failed with `CDP -32000 No resource with given identifier found` (the response arrived but the browser had already reclaimed its body — an intermittent race). It now retries once with a fresh browser on this class of browser/CDP hiccup; when Douyin risk control returns a non-200 detail response (302/403) it no longer retries and instead tells you to wait a few minutes.
 
 **You need these files:**
 
