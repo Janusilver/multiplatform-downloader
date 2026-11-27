@@ -12,6 +12,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -24,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.6.2"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -83,6 +84,57 @@ ADVICE = [
     ("Cookie 为空", "先装扩展导出对应平台 Cookie，放到程序旁边"),
     ("/login", "Cookie 可能已过期（小红书常见），重新导出一次"),
 ]
+
+# 首次运行引导用：状态存用户目录，别写 exe 旁边（Program Files 里不可写）
+STATE_DIR = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "multiplatform-downloader"
+STATE_FILE = STATE_DIR / "state.json"
+EXT_SUBDIR = "cookie-export"
+
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}          # 首次运行 / 文件损坏都当默认值，不打扰用户
+
+
+def save_state(state: dict) -> None:
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        STATE_FILE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass               # 状态存不下不影响主流程
+
+
+def extension_source() -> Path | None:
+    """源码运行取项目里的 extensions/；exe 运行取 PyInstaller 解包目录里的副本。"""
+    bases = []
+    meipass = getattr(sys, "_MEIPASS", "")
+    if meipass:
+        bases.append(Path(meipass))
+    bases.append(BASE)
+    for base in bases:
+        p = (base / "extensions" / EXT_SUBDIR).resolve()
+        if (p / "manifest.json").exists():
+            return p
+    return None
+
+
+def install_extension() -> Path | None:
+    """把扩展复制到用户目录（便于「加载解压缩的扩展」直接选中），返回该目录。"""
+    src = extension_source()
+    if src is None:
+        return None
+    dst = STATE_DIR / EXT_SUBDIR
+    try:
+        if dst.exists():
+            shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst)
+        return dst
+    except Exception as e:
+        print(f"[!] 复制扩展失败：{e}")     # 不静默：引导窗口里能直接看到原因
+        return None
+
 
 NOTES = (
     "1) Cookie 一般几周就会过期：B站掉 4K、小红书跳登录、抖音解析失败时，重新导出一次即可。\n"
@@ -315,6 +367,8 @@ class App:
                    command=self.open_history).pack(side="right", padx=(0, 6))
         ttk.Button(drow, text="说明", width=6,
                    command=self.show_notes).pack(side="right", padx=(0, 6))
+        ttk.Button(drow, text="引导", width=6,
+                   command=self.show_guide).pack(side="right", padx=(0, 6))
         ttk.Button(drow, text="选择目录", width=10,
                    command=self.choose_dir).pack(side="right")
         ttk.Button(drow, text="打开目录", width=10,
@@ -381,6 +435,114 @@ class App:
             self._post(f"[*] 保存目录：{self.out_dir}")
 
     # ---------- 日志 ----------
+    def _env_status(self) -> list[tuple[str, bool, str]]:
+        """返回 [(项, 是否就绪, 处理建议)]，用于引导窗口；只检测、不猜。"""
+        rows: list[tuple[str, bool, str]] = []
+        rows.append(("抖音 Cookie（必需）", COOKIE_PATH.exists(),
+                     "点「安装扩展」导出 douyin_cookies.txt，放到程序旁边"))
+        rows.append(("B站 Cookie（可选）", BILI_COOKIE_PATH.exists(),
+                     "不装也能下 1080P；要 4K / 1080P60 才需要大会员 Cookie"))
+        try:
+            import douyin_browser
+            has_browser = douyin_browser.find_browser() is not None
+        except Exception:
+            has_browser = True
+        rows.append(("Chrome / Edge（抖音解析用）", has_browser,
+                     "装 Chrome 或 Edge 任一个即可；不需要是本程序自带的"))
+        rows.append(("ffmpeg（B站/YouTube 合并用）", douyin.find_ffmpeg(BASE) is not None,
+                     "exe 版已内置；源码运行需自备 ffmpeg 放 ffmpeg 目录"))
+        proxy = douyin.detect_system_proxy()
+        rows.append((f"系统代理（YouTube/X/IG 用）{'：' + proxy if proxy else ''}",
+                     bool(proxy), "国内网络下这三个平台需要代理；海外可直连"))
+        return rows
+
+    def _open_extensions_page(self) -> None:
+        """打开浏览器的扩展管理页（顺带把 Edge/Chrome 都试一遍）。"""
+        import subprocess
+        targets = [
+            (["msedge.exe", "edge://extensions"], "Edge"),
+            (["chrome.exe", "chrome://extensions"], "Chrome"),
+        ]
+        for args, _name in targets:
+            try:
+                subprocess.Popen(args, shell=False)
+                return
+            except Exception:
+                continue
+        webbrowser.open("https://support.microsoft.com/microsoft-edge/add-or-remove-extensions")
+
+    def show_guide(self, first_run: bool = False) -> None:
+        """首次运行引导：一句话说清缺什么、点哪个按钮补上。"""
+        win = tk.Toplevel(self.root)
+        win.title("首次使用引导")
+        win.geometry("520x430")
+        win.transient(self.root)
+        tk.Label(win, text=("先补两样东西：① 导出 Cookie 的扩展  ② 各平台 Cookie；"
+                            "其余（浏览器 / ffmpeg / 代理）程序会自动检测。"),
+                 wraplength=490, justify="left", anchor="w").pack(fill="x", padx=12, pady=(12, 6))
+
+        box = tk.Frame(win)
+        box.pack(fill="both", expand=True, padx=12)
+
+        def render() -> None:
+            for w in box.winfo_children():
+                w.destroy()
+            for name, ok, tip in self._env_status():
+                row = tk.Frame(box)
+                row.pack(fill="x", pady=1)
+                tk.Label(row, text=("✅" if ok else "❌"), width=2).pack(side="left")
+                tk.Label(row, text=name, anchor="w", width=26,
+                         fg="#1a7f37" if ok else "#b42318").pack(side="left")
+                tk.Label(row, text="" if ok else tip, anchor="w", justify="left",
+                         wraplength=230, fg="#666").pack(side="left", fill="x", expand=True)
+
+        def do_install() -> None:
+            dst = install_extension()
+            if dst is None:
+                messagebox.showwarning(
+                    "没找到扩展文件",
+                    "本程序里没有内置 extensions/cookie-export。\n"
+                    "请从仓库下载该项目目录后重试，或手动加载仓库里的扩展文件夹。", parent=win)
+                return
+            self._open_extensions_page()
+            try:
+                os.startfile(dst)
+            except Exception:
+                pass
+            messagebox.showinfo(
+                "接下来两步",
+                "1) 浏览器地址栏进 edge://extensions（Chrome 是 chrome://extensions）\n"
+                "2) 打开右上角「开发者模式」→「加载解压缩的扩展」→ 选刚弹出的文件夹：\n"
+                f"{dst}\n\n"
+                "加载后到对应网站点扩展图标导出 Cookie，把 txt 放到本程序旁边，再点「重新检测」。",
+                parent=win)
+            render()
+
+        btns = tk.Frame(win)
+        btns.pack(fill="x", padx=12, pady=10)
+        ttk.Button(btns, text="安装扩展（复制并打开目录）", command=do_install).pack(side="left")
+        ttk.Button(btns, text="重新检测", command=render).pack(side="left", padx=6)
+        ttk.Button(btns, text="说明", command=self.show_notes).pack(side="left")
+
+        def close() -> None:
+            st = load_state()
+            st["onboarded"] = True
+            save_state(st)
+            win.destroy()
+
+        ttk.Button(btns, text="关闭", command=close).pack(side="right")
+        render()
+
+    def _maybe_onboard(self) -> None:
+        """首次运行且关键项缺失时才自动弹，别每次启动都烦人。"""
+        st = load_state()
+        if st.get("onboarded"):
+            return
+        missing = [name for name, ok, _ in self._env_status() if not ok]
+        if missing:
+            self._post(f"[*] 首次使用：还有 {len(missing)} 项没就绪，已打开引导窗口。")
+            self.show_guide(first_run=True)
+
     def _on_input_modified(self, _event=None) -> None:
         if not self.input.edit_modified():
             return
@@ -470,6 +632,7 @@ class App:
         self._post(f"[*] 文件将保存到：{self.out_dir}")
         self._post(f"[*] 历史记录：{len(self.history)} 条（点「历史」查看）")
         self._post(f"[*] 当前版本 v{APP_VERSION}，启动时自动检查更新")
+        self.root.after(600, self._maybe_onboard)
         self._post("")
 
     # ---------- 更新检查 ----------

@@ -96,6 +96,8 @@ cmd = [
     "--collect-all", "yt_dlp",
     "--collect-all", "curl_cffi",
     "--add-data", f"ffmpeg{os.sep}ffmpeg.exe;ffmpeg",
+    # 扩展随 exe 一起分发：首次运行引导可直接复制出来供「加载解压缩的扩展」
+    "--add-data", f"extensions{os.sep}cookie-export;extensions/cookie-export",
     "gui.py",
 ]
 print("[*] 打包中（需几分钟）...")
