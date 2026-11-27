@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/快手/B站/YouTube/X/Instagram，单文件 GUI）。"""
+"""PyInstaller 打包脚本：生成 dist\多平台下载器.exe（抖音/小红书/B站/YouTube/X/Instagram，单文件 GUI）。"""
 import os
 import re
 import shutil
@@ -73,7 +73,7 @@ VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('CompanyName', 'Janusilver'),
-      StringStruct('FileDescription', '多平台下载器 - 抖音/小红书/快手/B站/YouTube/X/Instagram'),
+      StringStruct('FileDescription', '多平台下载器 - 抖音/小红书/B站/YouTube/X/Instagram'),
       StringStruct('FileVersion', '{ver}'),
       StringStruct('InternalName', 'multiplatform-downloader'),
       StringStruct('OriginalFilename', '多平台下载器.exe'),

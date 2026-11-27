@@ -14,7 +14,7 @@ douyin_browser.py（无头 Chrome/Edge + CDP 截响应）拿同一份 detail 数
   python douyin.py "链接" -o 保存目录                   # 指定目录
 Cookie 失效时重新用浏览器扩展导出 douyin_cookies.txt 即可。
 
-本模块同时是共享工具库：xhs / kuaishou / instagram 复用
+本模块同时是共享工具库：xhs / instagram / gui 复用
 UA / host_allowed / load_cookie_str / sanitize / MIME_EXT / download。
 """
 from __future__ import annotations
@@ -244,7 +244,7 @@ def best_image_url(im: dict) -> str | None:
 def download(url: str, dest: Path, label: str = "",
              timeout: tuple = (10, 120), headers: dict | None = None,
              session: requests.Session | None = None) -> tuple[bool, str]:
-    """通用直链下载（douyin / xhs / kuaishou 共用）。
+    """通用直链下载（douyin / xhs 共用）。
     headers 不传默认只带 UA——多数图片 CDN 防盗链要求：不能带 Cookie/Referer，否则 403；
     传 session 时走 session.get（带 Cookie/Referer，视频下载用）。
     写临时文件 `.part` 再 `os.replace` 原子改名，中断不留半截成品；目标已存在非空则跳过

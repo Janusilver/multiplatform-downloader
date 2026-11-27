@@ -28,7 +28,6 @@ except ModuleNotFoundError:
     youtube = None
 
 import douyin
-import kuaishou
 import xhs
 
 
@@ -150,14 +149,6 @@ def main() -> int:
         # 站外域名冒充：CodeQL 告警对应的场景
         ("https://evil.com/?x=xhslink.com", None),
         ("https://xhslink.com.evil.com/a", None),
-    ])
-    f += check("kuaishou.extract_url", kuaishou.extract_url, [
-        ("https://v.kuaishou.com/abcdef", "https://v.kuaishou.com/abcdef"),
-        ("https://www.kuaishou.com/short-video/<id 隐去>",
-         "https://www.kuaishou.com/short-video/<id 隐去>"),
-        # 站外域名冒充
-        ("https://evil.com/#kuaishou.com", None),
-        ("https://kuaishou.com.evil.com/short-video/3x7", None),
     ])
     f += check("douyin.host_allowed", lambda u: douyin.host_allowed(u, ("xhslink.com",)), [
         ("https://xhslink.com/a/1", True),

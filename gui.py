@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器（tkinter GUI，PyInstaller 打包 exe 用）
-抖音复用 douyin.py；小红书/快手分别复用 xhs.py / kuaishou.py；B站 / YouTube 走 yt-dlp
+抖音 / 小红书 / B站 / YouTube / X / Instagram 下载器（tkinter GUI，PyInstaller 打包 exe 用）
+抖音复用 douyin.py；小红书复用 xhs.py；B站 / YouTube 走 yt-dlp
 （用便携 ffmpeg 合并音视频）；X / Instagram 走各自模块。
 文件与 Cookie 均以 exe 所在目录为基准，双击即可用。
 """
@@ -24,7 +24,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.5.3"
+APP_VERSION = "1.6.0"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -51,10 +51,10 @@ def _ffmpeg_location() -> Path | None:
 
 COOKIE_PATH = BASE / "douyin_cookies.txt"
 XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
-KS_COOKIE_PATH = BASE / "kuaishou_cookies.txt"
 TW_COOKIE_PATH = BASE / "twitter_cookies.txt"
 IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
 YT_COOKIE_PATH = BASE / "youtube_cookies.txt"
+BILI_COOKIE_PATH = BASE / "bilibili_cookies.txt"
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
 HISTORY_MAX = 200
@@ -147,13 +147,6 @@ def classify(text: str) -> tuple[str | None, str | None]:
     except ImportError:
         pass
     try:
-        import kuaishou
-        m = kuaishou.URL_RE.search(text)
-        if m:
-            return "kuaishou", m.group(0).rstrip("/")
-    except ImportError:
-        pass
-    try:
         import twitter
         m = twitter.URL_RE.search(text)
         if m:
@@ -174,7 +167,7 @@ def classify_all(text: str) -> list[tuple[str, str]]:
     """识别文本里所有分享链接（跨平台），按出现顺序返回 [(平台, URL), ...]，去重。
     classify 只取第一个匹配，剪贴板里常含多条链接，这里用 finditer 全量遍历。"""
     pats: list[tuple[str, object]] = [("douyin", douyin.URL_RE), ("bili", BILI_RE)]
-    for mod_name in ("xhs", "kuaishou", "twitter", "instagram", "youtube"):
+    for mod_name in ("xhs", "twitter", "instagram", "youtube"):
         try:
             pats.append((mod_name, __import__(mod_name).URL_RE))
         except ImportError:
@@ -219,11 +212,11 @@ class App:
         self._last_pct = ""
         self.out_dir = OUT_DIR
         self.history = load_history()
-        root.title(f"抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器 v{APP_VERSION}")
+        root.title(f"抖音 / 小红书 / B站 / YouTube / X / Instagram 下载器 v{APP_VERSION}")
         root.geometry("580x600")
         root.minsize(480, 440)
 
-        tk.Label(root, text="粘贴抖音 / 小红书 / 快手 / B站分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
+        tk.Label(root, text="粘贴抖音 / 小红书 / B站 / YouTube / X / Instagram 分享链接（支持多行批量）：").pack(anchor="w", padx=10, pady=(10, 2))
         self.clip_bar = tk.Frame(root, bg="#fff3cd", cursor="hand2")   # 剪贴板识别提示条（初始隐藏）
         self.clip_label = tk.Label(self.clip_bar, text="", bg="#fff3cd", anchor="w",
                                    padx=4, pady=2, cursor="hand2")
@@ -330,7 +323,7 @@ class App:
     # ---------- 日志 ----------
     def _welcome(self) -> None:
         self._post("=" * 44)
-        self._post("  抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram 下载器")
+        self._post("  抖音 / 小红书 / B站 / YouTube / X / Instagram 下载器")
         self._post("=" * 44)
         if COOKIE_PATH.exists():
             cookie = douyin.load_cookie_str(str(COOKIE_PATH))
@@ -340,7 +333,6 @@ class App:
         # 可选 Cookie 合并成一行报告：缺哪个不影响启动，只影响那个平台的成功率
         optional = [
             (XHS_COOKIE_PATH, "xhs_cookies.txt"),
-            (KS_COOKIE_PATH, "kuaishou_cookies.txt"),
             (TW_COOKIE_PATH, "twitter_cookies.txt"),
             (IG_COOKIE_PATH, "instagram_cookies.txt"),
             (YT_COOKIE_PATH, "youtube_cookies.txt"),
@@ -351,7 +343,7 @@ class App:
             self._post(f"[OK] 已找到可选 Cookie：{', '.join(have)}")
         if miss:
             self._post(f"[*] 未找到可选 Cookie（不影响启动，对应平台匿名跑）：{', '.join(miss)}")
-        if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists() and KS_COOKIE_PATH.exists()):
+        if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
             self._post("    2. Edge 打开 edge://extensions/ → 左下角「开发人员模式」")
@@ -506,8 +498,6 @@ class App:
                         ok = self._run_douyin(url)
                     elif platform == "xhs":
                         ok = self._run_xhs(url)
-                    elif platform == "kuaishou":
-                        ok = self._run_kuaishou(url)
                     elif platform == "twitter":
                         ok = self._run_twitter(url)
                     elif platform == "instagram":
@@ -552,35 +542,36 @@ class App:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         return xhs.process(url, self.out_dir, cookie)
 
-    def _run_kuaishou(self, url: str) -> bool:
-        try:
-            import kuaishou
-        except ImportError as e:
-            self._post(f"  [!] 快手依赖缺失（curl_cffi）：{e}")
-            return False
-        cookie = (douyin.load_cookie_str(str(KS_COOKIE_PATH))
-                  if KS_COOKIE_PATH.exists() else "")
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        return kuaishou.process(url, self.out_dir, cookie)
-
     def _run_bili(self, url: str) -> bool:
         import yt_dlp
         self.out_dir.mkdir(parents=True, exist_ok=True)
         opts = {
             "no_playlist": True,
-            "format": "bv*+ba/b",
+            "format": "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b",
             "outtmpl": str(self.out_dir / "%(title)s [%(id)s].%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [self._bili_hook],
+            # B站是国内站，走系统代理（海外节点）会被 412 拦；强制直连
+            "proxy": "",
         }
+        tmp_dir = None
+        if BILI_COOKIE_PATH.exists():
+            # yt-dlp 退出会把 cookiejar 写回 cookiefile，直接传导出文件会被改写，必须传临时副本
+            tmp_dir, tmp_ck = douyin.temp_cookie_copy(str(BILI_COOKIE_PATH))
+            if tmp_ck is not None:
+                opts["cookiefile"] = str(tmp_ck)
         ffmpeg = _ffmpeg_location()
         if ffmpeg is not None:
             opts["ffmpeg_location"] = str(ffmpeg)
         else:
             self._post("  [!] 未找到 ffmpeg，B站将无法合并音视频")
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+        finally:
+            if tmp_dir:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
         self._post("  [✓] B站下载完成")
         return True
 

@@ -97,6 +97,22 @@ def playlist_id(url: str) -> str | None:
     return None
 
 
+def rd_seed(url: str) -> str | None:
+    """`playlist?list=RD<video_id>` 是 YouTube 自动生成的 Mix，URL 里没有 v= 参数。
+
+    Mix 的 list id 就是「RD + 种子视频 id」，把种子取出来就能按单条下载；否则
+    `kind()` 返回 None，B 站之外最常见的分享形式之一（手机 App「播放列表」分享）
+    会被判成「不是可识别的链接」。
+    """
+    host, path, q = _parts(url)
+    if not (host == "youtube.com" or host.endswith(".youtube.com")) or path != "/playlist":
+        return None
+    lst = (q.get("list") or [""])[0]
+    if lst.startswith("RD") and len(lst) == 13:   # RD + 11 位视频 id
+        return lst[2:]
+    return None
+
+
 def kind(url: str) -> str | None:
     """'video' | 'playlist' | 'video+playlist' | None"""
     if not host_ok(url):
@@ -154,6 +170,11 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
             proxy: str = "", playlist: bool = False, max_items: int = 20) -> bool:
     """下载单条视频或播放列表。成功返回 True。"""
     out_dir.mkdir(parents=True, exist_ok=True)
+    seed = rd_seed(url)
+    if seed:
+        # 裸 Mix 链接（playlist?list=RD…）没有 v= 参数，改写成种子视频的单条 URL
+        url = f"https://www.youtube.com/watch?v={seed}"
+        print(f"  [*] Mix / 电台列表 → 按单条处理（种子视频 {seed}）")
     k = kind(url)
     if k is None:
         print("  [!] 不是可识别的 YouTube 链接（支持 watch / youtu.be / shorts / live / playlist；"
@@ -200,16 +221,32 @@ def process(url: str, out_dir: Path, cookie_path: str | None = None,
         print("  [*] 未设置代理：YouTube 在境外，直连大概率超时（可加 --proxy http://127.0.0.1:7890）")
 
     before = _snapshot(out_dir)
+
+    def _download(o: dict):
+        try:
+            with yt_dlp.YoutubeDL(o) as ydl:
+                ydl.download([url])
+            return None
+        except yt_dlp.utils.DownloadError as e:
+            return e
+
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
-    except yt_dlp.utils.DownloadError as e:
-        print(f"  [!] 下载失败: {str(e).splitlines()[0]}")
-        _cleanup_partial(out_dir, before)
-        return False
+        err = _download(opts)
+        if err is not None and opts.get("cookiefile"):
+            # 登录态 Cookie 会触发 YouTube 的 SABR-only 实验（只下发图片流），格式全不可用；
+            # 公开视频去掉 Cookie 反而能解析，所以自动回退一次。
+            print(f"  [!] 带 Cookie 下载失败: {str(err).splitlines()[0]}")
+            print("  [*] 去掉 Cookie 重试（登录态可能触发 SABR-only 实验）...")
+            opts.pop("cookiefile", None)
+            err = _download(opts)
     finally:
         if cookie_tmp_dir:
             shutil.rmtree(cookie_tmp_dir, ignore_errors=True)
+
+    if err is not None:
+        print(f"  [!] 下载失败: {str(err).splitlines()[0]}")
+        _cleanup_partial(out_dir, before)
+        return False
 
     new = _snapshot(out_dir) - before
     done = [p for p in new if not p.name.endswith((".part", ".ytdl"))]

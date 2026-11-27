@@ -1,8 +1,9 @@
-// 多平台 Cookie 导出：抖音 / 小红书 / 快手 / YouTube / X / Instagram（Netscape 格式，含 HttpOnly）
+// 多平台 Cookie 导出：抖音 / 小红书 / B站 / YouTube / X / Instagram（Netscape 格式，含 HttpOnly）
 const SITES = {
   'btn-dy':  { domain: '.douyin.com',       file: 'douyin_cookies.txt',   name: '抖音' },
   'btn-xhs': { domain: '.xiaohongshu.com',  file: 'xhs_cookies.txt',      name: '小红书' },
-  'btn-ks':  { domain: '.kuaishou.com',     file: 'kuaishou_cookies.txt', name: '快手' },
+  // B站 4K / 1080P60 只对大会员登录态开放，未登录最高 1080P。
+  'btn-bili': { domain: '.bilibili.com',    file: 'bilibili_cookies.txt', name: 'B站' },
   // YouTube 的登录态跨两个域：`.youtube.com` 放 VISITOR_INFO1_LIVE/LOGIN_INFO 一类，
   // 而 Google 账号的 SID/SAPISID/__Secure-*PSID 系列在 `.google.com` 上（实测 Edge 配置即如此）。
   // 只导 youtube.com 会缺认证 Cookie，yt-dlp 认不出登录态，故两域一起导。

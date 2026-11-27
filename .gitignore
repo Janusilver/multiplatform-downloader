@@ -3,12 +3,15 @@ douyin_cookies.txt
 douyin_cookies_*.txt
 xhs_cookies.txt
 xhs_cookies_*.txt
-kuaishou_cookies.txt
-kuaishou_cookies_*.txt
 twitter_cookies.txt
 twitter_cookies_*.txt
 instagram_cookies.txt
 instagram_cookies_*.txt
+youtube_cookies.txt
+youtube_cookies_*.txt
+bilibili_cookies.txt
+bilibili_cookies_*.txt
+_bili_ck_run.txt
 
 # ===== 下载内容 =====
 downloads/
@@ -23,6 +26,7 @@ __pycache__/
 ffmpeg/
 
 # ===== PyInstaller 打包产物 =====
+_build_tmp/
 build/
 dist/
 *.spec

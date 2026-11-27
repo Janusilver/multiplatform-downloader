@@ -1,6 +1,6 @@
 # multiplatform-downloader · 多平台无水印下载器
 
-粘贴分享链接，一键下载**抖音 / 小红书 / 快手**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）、**YouTube 视频**（单条 / 播放列表，自动合并音视频），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。七个平台一个窗口搞定。
+粘贴分享链接，一键下载**抖音 / 小红书**的**无水印图集原图、实况动图、无水印视频**（小红书视频若走网页流可能带小红书号水印）、**B站视频**（BV 号 / av 号 / b23.tv，自动合并画质 + 音轨）、**YouTube 视频**（单条 / 播放列表，自动合并音视频），以及 **X (Twitter)** 的无水印**单条推文**、**Instagram** 的无水印**帖子 / Reels**。七个平台一个窗口搞定。
 
 > 纯个人工具，仅供**个人归档学习**，尊重创作者版权，请勿二次传播无水印内容。
 
@@ -21,8 +21,7 @@
 |---|---|---|
 | 抖音 | 图集无水印原图、实况图（封面 jpg + 动图 mp4）、无水印视频 | ✅ 必需 |
 | 小红书 | 图文无水印原图、动图 mp4、视频（网页流可能带小红书号水印） | 建议（匿名可能被风控） |
-| 快手 | 无水印视频、图集 | 建议（匿名可用） |
-| B站 | 视频 + 音轨自动合并，裸 BV 号直接粘贴 | ❌ 不需要 |
+| B站 | 视频 + 音轨自动合并（优先 H.264），裸 BV 号直接粘贴 | ❌ 不登录也能下到 1080P；**4K / 1080P60 需大会员 Cookie** |
 | YouTube | 单条视频 / Shorts / 播放列表，优先 H.264 mp4 并自动合并音轨 | ❌ 公开视频不需要（会员/年龄限制才要） |
 | X (Twitter) | 单条推文（视频 / 图片），天然无水印 | 建议（匿名可能被登录墙挡住） |
 | Instagram | 帖子图集 / Reels，天然无水印（用户主页批量暂不可用） | 建议（匿名大概率失败） |
@@ -38,7 +37,9 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.5.3**，七平台齐全（抖音 / 小红书 / 快手 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+> ℹ️ `release\` 里的 exe 是 **v1.6.0**，六平台齐全（抖音 / 小红书 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+>
+> **v1.6.0 变更**：**移除快手支持**（代码 / 入口 / 扩展 / 文档一并删除）；B站 4K 选档改为优先 H.264（此前默认落到 AV1 轻量档，码率只有 1/5）；修掉开关 Clash 代理时 B站 直接 `HTTP 412` 的问题（改为强制直连）；B站 / YouTube 的 cookie 改为传临时副本，不再改写你导出的 `*_cookies.txt`；YouTube 支持 App 分享的 `playlist?list=RD…` Mix 链接（按种子视频下单条），并在登录态触发 SABR-only 实验时自动去掉 Cookie 重试。
 >
 > **v1.5.3 相对 1.5.2 的修复**：抖音浏览器兜底偶发 `CDP -32000 No resource with given identifier found`（响应已返回但浏览器提前回收了响应体，实测为偶发竞态）导致下载失败——现在只对这类浏览器/CDP 抖动自动换一个干净浏览器重试一次；命中风控（detail 返回 302/403）则不重试，直接提示稍等几分钟再试。
 
@@ -47,10 +48,10 @@
 | 文件 | 作用 |
 |---|---|
 | `release\多平台下载器.exe` | 主程序，双击即用 |
-| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / 快手 / YouTube / X / Instagram Cookie（B站不需要） |
+| `extensions\cookie-export\` | 浏览器扩展：导出抖音 / 小红书 / B站 / YouTube / X / Instagram Cookie |
 | `douyin_cookies.txt` | 抖音 Cookie（必需），放到 exe **旁边** |
 | `xhs_cookies.txt` | 小红书 Cookie（建议），放到 exe 旁边 |
-| `kuaishou_cookies.txt` | 快手 Cookie（建议），放到 exe 旁边 |
+| `bilibili_cookies.txt` | B站 Cookie（可选；不登录也能下 1080P，**4K / 1080P60 必须大会员登录态**），放到 exe 旁边 |
 | `twitter_cookies.txt` | X Cookie（建议，匿名可能被登录墙挡住），放到 exe 旁边 |
 | `instagram_cookies.txt` | Instagram Cookie（建议，匿名大概率失败），放到 exe 旁边 |
 | `youtube_cookies.txt` | YouTube Cookie（可选，公开视频不需要；会员 / 年龄限制视频才要；扩展会连同 `.google.com` 域一起导，登录态 Cookie 在那里） |
@@ -59,11 +60,11 @@
 
 1. **装扩展**：Edge 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）→ 开启左下角「开发人员模式」→「加载解压缩的扩展」→ 选 `cookie-export` 文件夹
 2. **导出抖音 Cookie**（必需）：打开 [douyin.com](https://www.douyin.com) 并保持登录 → 点扩展图标 → 导出 → 把 `douyin_cookies.txt` 放到 exe 同目录
-3. **导出小红书 / 快手 Cookie**（建议）：分别打开已登录的 [xiaohongshu.com](https://www.xiaohongshu.com) 和 [kuaishou.com](https://www.kuaishou.com)，各点一次导出，同样放到 exe 同目录
+3. **导出小红书 / B站 Cookie**（建议）：分别打开已登录的 [xiaohongshu.com](https://www.xiaohongshu.com) 和 [bilibili.com](https://www.bilibili.com)，各点一次导出，同样放到 exe 同目录。**B站不导也行，但只有 1080P；要 4K / 1080P60 必须用大会员账号登录后再导**
 4. **导出 X / Instagram Cookie**（下载 X/IG 时建议）：分别打开已登录的 [x.com](https://x.com) 和 [instagram.com](https://www.instagram.com)，各点一次导出，同样放到 exe 同目录
 5. **双击 exe**：粘贴链接点「开始下载」，文件保存到 `downloads\`
 
-> 💡 只下 B站：一个 Cookie 都不用。只下抖音：第一步 + 第二步即可。小红书 / 快手不导 Cookie 也能用，但被风控的概率更高。
+> 💡 只下 B站 1080P：一个 Cookie 都不用（要 4K / 1080P60 才需要大会员 Cookie）。只下抖音：第一步 + 第二步即可。小红书不导 Cookie 也能用，但被风控的概率更高。
 
 **⚠️ Windows 提示「已保护你的电脑」**：因为没做代码签名，属正常现象，点「更多信息」→「仍要运行」。
 
@@ -78,14 +79,12 @@ multiplatform-downloader/
 ├── douyin.py            # 抖音核心下载器
 ├── douyin_browser.py    # 抖音 detail 的浏览器兜底（无头 Chrome/Edge + CDP，纯标准库）
 ├── xhs.py               # 小红书下载器（curl_cffi 伪装 Chrome）
-├── kuaishou.py          # 快手下载器（__APOLLO_STATE__ 解析）
 ├── twitter.py           # X 下载器（yt-dlp 封装）
 ├── youtube.py           # YouTube 下载器（yt-dlp 封装：单条 / 播放列表）
 ├── instagram.py         # Instagram 下载器（自研私有 API，curl_cffi 伪装 Chrome TLS）
 ├── tests/test_urls.py   # URL 识别单测（免联网纯 assert）
 ├── douyin.bat           # 抖音下载入口（双击运行）
 ├── xhs.bat              # 小红书下载入口（双击运行）
-├── kuaishou.bat         # 快手下载入口（双击运行）
 ├── bilibili.bat         # B站下载入口（双击运行）
 ├── youtube.bat          # YouTube 下载入口（双击运行，可选整列表）
 ├── gui.py               # 七平台一体 GUI 入口（PyInstaller 打包用）
@@ -98,10 +97,9 @@ multiplatform-downloader/
 ├── release/
 │   └── 多平台下载器.exe   # 免环境版成品（clone 后双击即用）
 ├── extensions/
-│   └── cookie-export/   # 浏览器扩展：一键导出六平台 Cookie
+│   └── cookie-export/   # 浏览器扩展：一键导出七平台 Cookie
 ├── douyin_cookies.txt   # 【隐私】抖音 Cookie，已被 .gitignore 排除
 ├── xhs_cookies.txt      # 【隐私】小红书 Cookie，已被 .gitignore 排除
-├── kuaishou_cookies.txt # 【隐私】快手 Cookie，已被 .gitignore 排除
 ├── downloads/           # 下载文件默认保存目录
 └── ffmpeg/              # 便携 ffmpeg（B站音视频合并需要，见下方安装）
 ```
@@ -118,14 +116,14 @@ python -m venv .venv
 # Linux：
 # python -m venv .venv && source .venv/bin/activate
 
-# 2. 安装依赖（curl_cffi 用于小红书/快手反风控）
+# 2. 安装依赖（curl_cffi 用于小红书反风控）
 pip install requests yt-dlp curl_cffi
 ```
 
-**ffmpeg（B站 / YouTube 合并音视频、快手 m3u8 流需要）**：Windows 下把 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或 `pip install imageio-ffmpeg` 后从包内提取 exe 放进去）。没有 ffmpeg 时 B站 / YouTube / 部分快手视频会失败，其他平台不受影响。
+**ffmpeg（B站 / YouTube 合并音视频需要）**：Windows 下把 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或 `pip install imageio-ffmpeg` 后从包内提取 exe 放进去）。没有 ffmpeg 时 B站 / YouTube 会失败，其他平台不受影响。
 
 - **Linux**：把 ffmpeg 可执行文件放进 `ffmpeg/` 并命名为 `ffmpeg`（不带 `.exe`），或直接 `apt install ffmpeg` 用系统 PATH 里的版本——程序会自动挑当前平台可用的那个。
-- **平台实测情况**：Windows 完整实测（YouTube / Instagram 真实下载 + 全部脚本）；Linux 只实测了「URL 解析单元测试、6 个脚本启动、YouTube 下载+合并、Instagram 多图下载」，**小红书/快手/抖音的真实下载和 GUI 未实测**；macOS **没设备，未测试**。
+- **平台实测情况**：Windows 完整实测（YouTube / Instagram 真实下载 + 全部脚本）；Linux 只实测了「URL 解析单元测试、6 个脚本启动、YouTube 下载+合并、Instagram 多图下载」，**小红书/抖音的真实下载和 GUI 未实测**；macOS **没设备，未测试**。
 
 **Chrome / Edge（抖音下载需要）**：抖音详情接口现在要求浏览器现场签名，纯 HTTP 请求会被挡；程序会自动用本机装好的 Chrome 或 Edge 抓一次详情（无头模式、临时配置，不动你的浏览器设置）。装了浏览器即可，无需额外依赖。
 
@@ -166,14 +164,6 @@ pip install requests yt-dlp curl_cffi
 - **视频**：优先下载 `originVideoKey` **原始无水印文件**；但 2026-08 实测网页端多数笔记已不暴露该字段，退回最高清网页流（**可能带小红书号水印**，日志会提示）
 - **动图（Live Photo）**：每张图额外下载内嵌的 mp4
 
-## 🟠 快手下载
-
-支持 `v.kuaishou.com` 短链、`short-video/{id}`、`f/{id}`、`v.m.chenzhongtech.com/fw/photo/{id}`。匿名可用，登录导出 `kuaishou_cookies.txt` 更稳。
-
-```bash
-.venv\Scripts\python.exe kuaishou.py "https://v.kuaishou.com/xxxx/"
-.venv\Scripts\python.exe kuaishou.py links.txt
-```
 
 视频自动选**最高画质档**（按分辨率+码率排序；实测 H264 720p/3.4Mbps 与 H265 720p/2Mbps 均**无水印**，优先高码率 H264）；图集走 `ext_params.atlas`。
 
@@ -235,7 +225,6 @@ pip install requests yt-dlp curl_cffi
 | 抖音下载提示 Cookie 失效 / 解析不到内容 | 重新打开 douyin.com 点扩展导出，覆盖 `douyin_cookies.txt` |
 | 抖音提示「浏览器启动后立即退出」/ 找不到浏览器 | 抖音解析需要本机装 Chrome 或 Edge。若已装仍报此错：多为安全软件拦截了「未知程序启动浏览器」。**卡巴斯基免费版实测把项目目录加进排除项也没用**（免费版无受信任应用白名单）；可行的解法是**把解释器放到项目目录外**——例如 `copy .venv E:\venvs\multiplatform-downloader`，然后用 `E:\venvs\multiplatform-downloader\Scripts\python.exe douyin.py "链接"`；或直接用系统 Python（Anaconda 等）跑抖音。其它平台不启动浏览器，不受影响 |
 | 小红书提示「笔记数据获取失败」 | 裸 `explore/{id}` 链接会被风控，改用**分享链接**（带 xsec_token，如 xhslink 短链）重试；或导出 `xhs_cookies.txt` 后重试；或链接本身已删除 |
-| 快手提示「页面无 __APOLLO_STATE__」 | 同样先导出 `kuaishou_cookies.txt`；或链接已删除 |
 | 小红书视频带「小红书号」水印 | 该笔记没有原始文件源（originVideoKey），网页流自带水印；属于平台行为，暂无法绕过 |
 | 图集图片带水印 | 更新到最新版；新版默认走无水印源 |
 | B站提示 ffmpeg 相关错误 | 确认 `ffmpeg\ffmpeg.exe` 存在（见安装） |
@@ -245,7 +234,7 @@ pip install requests yt-dlp curl_cffi
 | 改了代码重新打包，启动还提示去 GitHub 下载更新 | 更新检测比对的是「exe 内置版本号 vs GitHub 最新 Release tag」；改了代码但没升 `APP_VERSION`（gui.py 顶部）就打包，exe 版本仍落后就会提示。改代码打包前记得同步升版本号并打新 tag |
 | X 提示登录墙 / 下不动 | 导出 `twitter_cookies.txt`；X 服务器在国外，GUI「代理」框或 CLI `--proxy` 填代理地址（如 `http://127.0.0.1:7890`） |
 | Instagram 下载失败 | 导出 `instagram_cookies.txt`（匿名大概率失败）；国外 CDN 需代理，同上。单条帖子正常；**主页批量 2026-10 起被 IG 限流（429），暂时无解** |
-| 贴了链接却提示「未找到 XX 链接」 | 出于安全只接受**平台自家域名**（`v.douyin.com` / `xhslink.com` / `v.kuaishou.com` 及各主站域名）。站外链接即使文本里带平台域名关键词也会被拒——这是防止把你的登录 Cookie 发给第三方站点。另外短链跳转全程**不携带 Cookie** |
+| 贴了链接却提示「未找到 XX 链接」 | 出于安全只接受**平台自家域名**（`v.douyin.com` / `xhslink.com` 及各主站域名）。站外链接即使文本里带平台域名关键词也会被拒——这是防止把你的登录 Cookie 发给第三方站点。另外短链跳转全程**不携带 Cookie** |
 
 ## ⚠️ 免责声明
 
