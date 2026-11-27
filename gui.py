@@ -24,7 +24,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -55,6 +55,43 @@ TW_COOKIE_PATH = BASE / "twitter_cookies.txt"
 IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
 YT_COOKIE_PATH = BASE / "youtube_cookies.txt"
 BILI_COOKIE_PATH = BASE / "bilibili_cookies.txt"
+
+# ---- 用户向提示（只说「该做什么」，原理写在 README / AGENTS）----
+PLATFORM_NAMES = {
+    "douyin": "抖音", "xhs": "小红书", "bili": "B站",
+    "youtube": "YouTube", "twitter": "X", "instagram": "Instagram",
+}
+PLATFORM_HINTS = {
+    "douyin": "必须有登录 Cookie（douyin_cookies.txt 放程序旁边），缺失会解析失败",
+    "xhs": "建议导出 Cookie（匿名易被风控），视频可能带小红书号水印",
+    "bili": "不登录最高 1080P，4K / 1080P60 需大会员 Cookie",
+    "youtube": "必须走代理（已自动填入系统代理），公开视频不需要 Cookie",
+    "twitter": "仅支持单条推文（/status/…），主页批量不支持",
+    "instagram": "需要登录 Cookie + 代理，用户主页批量不支持",
+}
+
+# 日志里命中关键字时补一句人话处置（同一次下载每条只提示一次）
+ADVICE = [
+    ("HTTP Error 412", "B站 被代理拦了，程序已强制直连，直接重试即可"),
+    ("Requested format is not available",
+     "YouTube 登录态触发 SABR-only，已自动去 Cookie 重试；仍失败请稍后再试"),
+    ("HTTP Error 403", "多半是风控/限流：停手静置 5–10 分钟再试，连续重试只会延长窗口"),
+    ("Read timed out", "网络超时：检查代理或稍后重试"),
+    ("浏览器启动后立即退出", "被杀毒软件拦住（卡巴斯基常见）：把本程序加入信任，或用源码方式运行"),
+    ("Cookie 为空", "先装扩展导出对应平台 Cookie，放到程序旁边"),
+    ("/login", "Cookie 可能已过期（小红书常见），重新导出一次"),
+]
+
+NOTES = (
+    "1) Cookie 几周就会过期：B站掉 4K、小红书跳登录、抖音解析失败时，重新导出一次即可。\n"
+    "2) 失败先别连点：抖音 / YouTube 的风控按「停手静置」恢复，连续重试只会延长封禁窗口。\n"
+    "3) 抖音依赖本机 Chrome / Edge 兜底解析；报「浏览器启动后立即退出」是杀软拦截（卡巴斯基常见）。\n"
+    "4) B站：无 Cookie 最高 1080P；4K / 1080P60 需大会员 Cookie，扩展可导出。\n"
+    "5) YouTube：不要导 Cookie（登录态会触发 SABR-only 导致下载失败）；必须走代理。\n"
+    "6) X 仅支持单条推文；Instagram 需 Cookie + 代理，且主页批量不支持。\n"
+    "7) 快手支持已移除，粘贴快手链接会提示无法识别。\n"
+    "8) 同名文件已存在会自动跳过；下载历史最多保留 200 条。"
+)
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
 HISTORY_MAX = 200
@@ -196,10 +233,18 @@ class _QueueWriter:
 
     def __init__(self, q: queue.Queue):
         self.q = q
+        self.advised: set[str] = set()      # 同一次下载内每条建议只提示一次
 
     def write(self, s: str) -> None:
-        if s.strip():
-            self.q.put(("log", s.rstrip("\n")))
+        if not s.strip():
+            return
+        line = s.rstrip("\n")
+        self.q.put(("log", line))
+        for needle, tip in ADVICE:
+            if needle in line and needle not in self.advised:
+                self.advised.add(needle)
+                self.q.put(("log", f"  💡 {tip}"))
+                break
 
     def flush(self) -> None:
         pass
@@ -230,6 +275,14 @@ class App:
         sb.pack(side="right", fill="y")
         self.input.pack(side="left", fill="both", expand=True)
 
+        # 平台提示：随输入内容实时更新（识别到平台时给该平台的一句话注意事项）
+        self.hint_var = tk.StringVar(value="")
+        self.hint_label = tk.Label(root, textvariable=self.hint_var, anchor="w",
+                                   justify="left", fg="#555", wraplength=545)
+        self.hint_label.pack(fill="x", padx=10, pady=(4, 0))
+        self.input.bind("<<Modified>>", self._on_input_modified)
+        self._refresh_hint()
+
         self.btn = ttk.Button(root, text="开始下载", command=self.start)
         self.btn.pack(pady=6)
 
@@ -255,6 +308,8 @@ class App:
         drow.pack(fill="x", padx=10)
         ttk.Button(drow, text="历史", width=6,
                    command=self.open_history).pack(side="right", padx=(0, 6))
+        ttk.Button(drow, text="说明", width=6,
+                   command=self.show_notes).pack(side="right", padx=(0, 6))
         ttk.Button(drow, text="选择目录", width=10,
                    command=self.choose_dir).pack(side="right")
         ttk.Button(drow, text="打开目录", width=10,
@@ -321,6 +376,50 @@ class App:
             self._post(f"[*] 保存目录：{self.out_dir}")
 
     # ---------- 日志 ----------
+    def _on_input_modified(self, _event=None) -> None:
+        if not self.input.edit_modified():
+            return
+        self.input.edit_modified(False)     # 复位，否则 <<Modified>> 只触发一次
+        self._refresh_hint()
+
+    def _refresh_hint(self) -> None:
+        """按输入内容 + Cookie 现况给一句提示：说清楚「现在缺什么、会有什么后果」。"""
+        text = self.input.get("1.0", "end").strip()
+        found = classify_all(text) if text else []
+        if not found:
+            self.hint_var.set("支持：抖音 / 小红书 / B站 / YouTube / X / Instagram（快手已移除）。"
+                              "粘贴分享链接后这里会显示对应注意事项。")
+            return
+        platforms = []
+        for platform, _ in found:
+            if platform not in platforms:
+                platforms.append(platform)
+        if len(platforms) > 1:
+            names = " / ".join(PLATFORM_NAMES.get(p, p) for p in platforms)
+            self.hint_var.set(f"已识别 {len(found)} 条链接（{names}），将按顺序下载，每条间隔 2 秒防风控。")
+            return
+
+        p = platforms[0]
+        name = PLATFORM_NAMES.get(p, p)
+        status = ""
+        if p == "douyin":
+            status = "（已就绪）" if COOKIE_PATH.exists() else "（当前缺失）"
+        elif p == "bili":
+            status = ("（大会员 Cookie 已就绪，可选 4K）" if BILI_COOKIE_PATH.exists()
+                      else "（无 Cookie，最高 1080P）")
+        elif p == "xhs":
+            status = "（已就绪）" if XHS_COOKIE_PATH.exists() else "（当前缺失）"
+        elif p == "twitter":
+            status = "（已就绪）" if TW_COOKIE_PATH.exists() else "（当前缺失，匿名可能被登录墙挡）"
+        elif p == "instagram":
+            status = "（已就绪）" if IG_COOKIE_PATH.exists() else "（当前缺失）"
+        elif p == "youtube" and YT_COOKIE_PATH.exists():
+            status = "  ⚠️ 检测到 youtube_cookies.txt：登录态只下发图片流，建议移走"
+        self.hint_var.set(f"{name}：{PLATFORM_HINTS.get(p, '')}{status}")
+
+    def show_notes(self) -> None:
+        messagebox.showinfo("注意事项（都是踩过的坑）", NOTES)
+
     def _welcome(self) -> None:
         self._post("=" * 44)
         self._post("  抖音 / 小红书 / B站 / YouTube / X / Instagram 下载器")
@@ -343,6 +442,9 @@ class App:
             self._post(f"[OK] 已找到可选 Cookie：{', '.join(have)}")
         if miss:
             self._post(f"[*] 未找到可选 Cookie（不影响启动，对应平台匿名跑）：{', '.join(miss)}")
+        if YT_COOKIE_PATH.exists():
+            self._post("[!] 检测到 youtube_cookies.txt：YouTube 登录态会只下发图片流（SABR-only），"
+                       "下载会报「Requested format is not available」。公开视频请把它移走。")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
@@ -483,6 +585,7 @@ class App:
     def _run(self, text: str) -> None:
         old = sys.stdout
         sys.stdout = _QueueWriter(self.q)
+        sys.stdout.advised.clear()          # 新一轮下载，建议重新提示
         try:
             lines = [l.strip() for l in text.splitlines() if l.strip()]
             fail = 0
