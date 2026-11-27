@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.6.3"
+APP_VERSION = "1.6.4"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -50,12 +50,25 @@ def _ffmpeg_location() -> Path | None:
     return douyin.find_ffmpeg(FFMPEG_DIR.parent)
 
 
-COOKIE_PATH = BASE / "douyin_cookies.txt"
-XHS_COOKIE_PATH = BASE / "xhs_cookies.txt"
-TW_COOKIE_PATH = BASE / "twitter_cookies.txt"
-IG_COOKIE_PATH = BASE / "instagram_cookies.txt"
-YT_COOKIE_PATH = BASE / "youtube_cookies.txt"
-BILI_COOKIE_PATH = BASE / "bilibili_cookies.txt"
+def _find_cookie(name: str) -> Path:
+    """Cookie 允许放两处：程序所在目录（exe 旁边）或它的上级目录（跑源码时的项目根）。
+
+    用户常把 exe 放 release/、Cookie 放仓库根目录，只认一处就会「明明导出了却说没有」；
+    再兜底当前工作目录。都找不到时返回主位置，方便提示里直接说该放哪。
+    """
+    primary = BASE / name
+    for cand in (primary, BASE.parent / name, Path.cwd() / name):
+        if cand.exists():
+            return cand
+    return primary
+
+
+COOKIE_PATH = _find_cookie("douyin_cookies.txt")
+XHS_COOKIE_PATH = _find_cookie("xhs_cookies.txt")
+TW_COOKIE_PATH = _find_cookie("twitter_cookies.txt")
+IG_COOKIE_PATH = _find_cookie("instagram_cookies.txt")
+YT_COOKIE_PATH = _find_cookie("youtube_cookies.txt")
+BILI_COOKIE_PATH = _find_cookie("bilibili_cookies.txt")
 
 # ---- 用户向提示（只说「该做什么」，原理写在 README / AGENTS）----
 PLATFORM_NAMES = {

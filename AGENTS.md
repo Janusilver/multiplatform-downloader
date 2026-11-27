@@ -74,6 +74,7 @@
 - **`downloads/` 里的作品是用户资产，agent 一律不得自动清理**（2026-11-30）：删哪些作品由用户自己决定（实例：用户 01:41 自行清掉了部分文件），agent 不猜、不「顺手清理」。清理只允许针对 `_` 前缀的临时文件与测试专用目录（`_test_*`、`downloads/_test_*`、`downloads/_probe`、`downloads/_verify` 之类）；`downloads/` 下以作品名命名的目录与文件不在任何自动清理范围内。
 
 ## 测试
+- **测试链接不外泄**（2026-11-27 用户要求）：本文件在公开仓库里，写测试记录时只写「平台 + 内容形态 + 结果」，**不写具体 URL / 视频 ID / 作者**；需要复现时用 `v.douyin.com/<id 隐去>` 这种占位。
 - `douyin.py` 已用真实链接实测通过：图集（13/13 原图）、实况图动图（4/4 mp4）、视频（无水印 mp4）。
 - `xhs.py` 已实测通过（2026-08-15，带登录 Cookie）：图文笔记 3/3 原图（走 `fileId` → `sns-img-bd.xhscdn.com`）、视频笔记 mp4（`media.stream.EF4` 最高清）。**视频水印（最终结论）**：网页流（sns-video-v2）带「小红书号」水印；**网页端数据层已彻底不暴露干净源**——8/8 视频笔记的 SSR `video` 只有 `media/mediaV2/image/capa`，无 `consumer.originVideoKey`；真浏览器（playwright + `_webmsxyw` 签名 + 注入 Cookie）调 feed API 能过风控（code 0）但数据空/minimal，也拿不到 originVideoKey（风控还会在 code 0 / code -101 间横跳）。**结论：小红书视频水印在网页接口下无解**（数据层封死，非签名问题），保持页面解析 + 水印提示。实况图（Live Photo）代码已支持（`imageList[].stream.EF4` masterUrl），已实测通过（3 图+3 mp4）。裸 `explore/{id}` 无 xsec 会被风控，需分享链接（带 xsec_token）或恰好出现在首页 feed。playwright 曾用于探索小红书签名（2026-08-15），已卸载，不打包。
 - `instagram.py` / `twitter.py`：**URL 识别单测**（`tests/test_urls.py`，免联网纯 assert）已通过（IG 7 组 / X 9 组）。**X 2026-10-17 已实测通过**；**Instagram 单条帖子 2026-10-17 已实测通过、主页批量不可用**（细节见下条）。
