@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.6.2"
+APP_VERSION = "1.6.3"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -439,9 +439,9 @@ class App:
         """返回 [(项, 是否就绪, 处理建议)]，用于引导窗口；只检测、不猜。"""
         rows: list[tuple[str, bool, str]] = []
         rows.append(("抖音 Cookie（必需）", COOKIE_PATH.exists(),
-                     "点「安装扩展」导出 douyin_cookies.txt，放到程序旁边"))
+                     f"导出后放到：{BASE}\\douyin_cookies.txt"))
         rows.append(("B站 Cookie（可选）", BILI_COOKIE_PATH.exists(),
-                     "不装也能下 1080P；要 4K / 1080P60 才需要大会员 Cookie"))
+                     f"不装也能下 1080P；要 4K 就放到：{BASE}\\bilibili_cookies.txt"))
         try:
             import douyin_browser
             has_browser = douyin_browser.find_browser() is not None
@@ -523,6 +523,7 @@ class App:
         ttk.Button(btns, text="安装扩展（复制并打开目录）", command=do_install).pack(side="left")
         ttk.Button(btns, text="重新检测", command=render).pack(side="left", padx=6)
         ttk.Button(btns, text="说明", command=self.show_notes).pack(side="left")
+        ttk.Button(btns, text="打开程序目录", command=lambda: os.startfile(BASE)).pack(side="left", padx=6)
 
         def close() -> None:
             st = load_state()
@@ -570,10 +571,11 @@ class App:
         name = PLATFORM_NAMES.get(p, p)
         status = ""
         if p == "douyin":
-            status = "（Cookie 已就绪）" if COOKIE_PATH.exists() else "（Cookie 缺失）"
+            status = ("（Cookie 已就绪）" if COOKIE_PATH.exists()
+                      else f"（Cookie 缺失：把 douyin_cookies.txt 放到 {BASE}）")
         elif p == "bili":
             status = ("（大会员 Cookie 已就绪，可选 4K）" if BILI_COOKIE_PATH.exists()
-                      else "（无 Cookie，最高 1080P）")
+                      else f"（无 Cookie，最高 1080P；把 bilibili_cookies.txt 放到 {BASE}）")
         elif p == "xhs":
             status = "（Cookie 已就绪）" if XHS_COOKIE_PATH.exists() else "（Cookie 缺失）"
         elif p == "twitter":
