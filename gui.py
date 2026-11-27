@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import douyin
 
-APP_VERSION = "1.6.4"
+APP_VERSION = "1.6.5"
 UPDATE_URL = "https://api.github.com/repos/Janusilver/multiplatform-downloader/releases/latest"
 PROXY_FALLBACK = {"http": "http://127.0.0.1:7890",
                   "https": "http://127.0.0.1:7890"}
@@ -452,21 +452,26 @@ class App:
         """返回 [(项, 是否就绪, 处理建议)]，用于引导窗口；只检测、不猜。"""
         rows: list[tuple[str, bool, str]] = []
         rows.append(("抖音 Cookie（必需）", COOKIE_PATH.exists(),
-                     f"导出后放到：{BASE}\\douyin_cookies.txt"))
+                     f"已就绪：{COOKIE_PATH}" if COOKIE_PATH.exists()
+                     else f"导出后放到：{BASE}\\douyin_cookies.txt"))
         rows.append(("B站 Cookie（可选）", BILI_COOKIE_PATH.exists(),
-                     f"不装也能下 1080P；要 4K 就放到：{BASE}\\bilibili_cookies.txt"))
+                     "已就绪，可选 4K / 1080P60" if BILI_COOKIE_PATH.exists()
+                     else f"不装也能下 1080P；要 4K 就放到：{BASE}\\bilibili_cookies.txt"))
         try:
             import douyin_browser
             has_browser = douyin_browser.find_browser() is not None
         except Exception:
             has_browser = True
         rows.append(("Chrome / Edge（抖音解析用）", has_browser,
-                     "装 Chrome 或 Edge 任一个即可；不需要是本程序自带的"))
-        rows.append(("ffmpeg（B站/YouTube 合并用）", douyin.find_ffmpeg(BASE) is not None,
-                     "exe 版已内置；源码运行需自备 ffmpeg 放 ffmpeg 目录"))
+                     "已检测到浏览器" if has_browser
+                     else "装 Chrome 或 Edge 任一个即可，不需要本程序自带的"))
+        ff = _ffmpeg_location()
+        rows.append(("ffmpeg（B站/YouTube 合并用）", ff is not None,
+                     f"已找到：{ff}" if ff else "exe 版已内置；源码运行需自备 ffmpeg 放 ffmpeg 目录"))
         proxy = douyin.detect_system_proxy()
-        rows.append((f"系统代理（YouTube/X/IG 用）{'：' + proxy if proxy else ''}",
-                     bool(proxy), "国内网络下这三个平台需要代理；海外可直连"))
+        rows.append(("系统代理（YouTube/X/IG 用）", bool(proxy),
+                     f"已检测到：{proxy}" if proxy
+                     else "国内网络下 YouTube / X / Instagram 需要代理；海外可直连"))
         return rows
 
     def _open_extensions_page(self) -> None:
@@ -488,7 +493,7 @@ class App:
         """首次运行引导：一句话说清缺什么、点哪个按钮补上。"""
         win = tk.Toplevel(self.root)
         win.title("首次使用引导")
-        win.geometry("520x430")
+        win.geometry("620x480")
         win.transient(self.root)
         tk.Label(win, text=("先补两样东西：① 导出 Cookie 的扩展  ② 各平台 Cookie；"
                             "其余（浏览器 / ffmpeg / 代理）程序会自动检测。"),
@@ -500,14 +505,14 @@ class App:
         def render() -> None:
             for w in box.winfo_children():
                 w.destroy()
-            for name, ok, tip in self._env_status():
+            for name, ok, detail in self._env_status():
                 row = tk.Frame(box)
                 row.pack(fill="x", pady=1)
-                tk.Label(row, text=("✅" if ok else "❌"), width=2).pack(side="left")
-                tk.Label(row, text=name, anchor="w", width=26,
-                         fg="#1a7f37" if ok else "#b42318").pack(side="left")
-                tk.Label(row, text="" if ok else tip, anchor="w", justify="left",
-                         wraplength=230, fg="#666").pack(side="left", fill="x", expand=True)
+                tk.Label(row, text=("✅" if ok else "❌"), width=2).pack(side="left", anchor="n")
+                tk.Label(row, text=name, anchor="w", width=22,
+                         fg="#1a7f37" if ok else "#b42318").pack(side="left", anchor="n")
+                tk.Label(row, text=detail, anchor="w", justify="left",
+                         wraplength=310, fg="#666").pack(side="left", fill="x", expand=True)
 
         def do_install() -> None:
             dst = install_extension()
@@ -634,7 +639,7 @@ class App:
             has_browser = True      # 检测失败时保持沉默，别误导用户
         if not has_browser:
             self._post("[!] 未检测到 Chrome / Edge：抖音解析需要其中之一（装好任一个即可）。")
-        if douyin.find_ffmpeg(BASE) is None:
+        if _ffmpeg_location() is None:      # 与下载路径用同一个解析函数，exe 里指向 _MEIPASS/ffmpeg
             self._post("[!] 未找到 ffmpeg：B站 / YouTube 无法合并音视频（源码运行需自备；exe 版已内置）。")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
