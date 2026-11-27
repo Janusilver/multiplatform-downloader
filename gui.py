@@ -65,9 +65,9 @@ PLATFORM_HINTS = {
     "douyin": "必须有登录 Cookie（douyin_cookies.txt 放程序旁边），缺失会解析失败",
     "xhs": "建议导出 Cookie（匿名易被风控），视频可能带小红书号水印",
     "bili": "不登录最高 1080P，4K / 1080P60 需大会员 Cookie",
-    "youtube": "必须走代理（已自动填入系统代理），公开视频不需要 Cookie",
-    "twitter": "仅支持单条推文（/status/…），主页批量不支持",
-    "instagram": "需要登录 Cookie + 代理，用户主页批量不支持",
+    "youtube": "国内网络需要代理（海外可直连）；公开视频不需要 Cookie",
+    "twitter": "仅支持单条推文（/status/…），主页批量不支持；国内网络需要代理",
+    "instagram": "需要登录 Cookie；国内网络还需要代理；用户主页批量不支持",
 }
 
 # 日志里命中关键字时补一句人话处置（同一次下载每条只提示一次）
@@ -77,18 +77,23 @@ ADVICE = [
      "YouTube 登录态触发 SABR-only，已自动去 Cookie 重试；仍失败请稍后再试"),
     ("HTTP Error 403", "多半是风控/限流：停手静置 5–10 分钟再试，连续重试只会延长窗口"),
     ("Read timed out", "网络超时：检查代理或稍后重试"),
-    ("浏览器启动后立即退出", "被杀毒软件拦住（卡巴斯基常见）：把本程序加入信任，或用源码方式运行"),
+    ("浏览器启动后立即退出",
+     "常见原因是安全软件误拦（卡巴斯基 / 360 / 火绒 / Defender 等）或系统策略："
+     "把本程序加入信任/白名单，或改用源码方式运行"),
     ("Cookie 为空", "先装扩展导出对应平台 Cookie，放到程序旁边"),
     ("/login", "Cookie 可能已过期（小红书常见），重新导出一次"),
 ]
 
 NOTES = (
-    "1) Cookie 几周就会过期：B站掉 4K、小红书跳登录、抖音解析失败时，重新导出一次即可。\n"
+    "1) Cookie 一般几周就会过期：B站掉 4K、小红书跳登录、抖音解析失败时，重新导出一次即可。\n"
     "2) 失败先别连点：抖音 / YouTube 的风控按「停手静置」恢复，连续重试只会延长封禁窗口。\n"
-    "3) 抖音依赖本机 Chrome / Edge 兜底解析；报「浏览器启动后立即退出」是杀软拦截（卡巴斯基常见）。\n"
-    "4) B站：无 Cookie 最高 1080P；4K / 1080P60 需大会员 Cookie，扩展可导出。\n"
-    "5) YouTube：不要导 Cookie（登录态会触发 SABR-only 导致下载失败）；必须走代理。\n"
-    "6) X 仅支持单条推文；Instagram 需 Cookie + 代理，且主页批量不支持。\n"
+    "3) 抖音解析需要本机装有 Chrome 或 Edge 之一。若报「浏览器启动后立即退出」，"
+    "多为安全软件误拦（卡巴斯基 / 360 / 火绒 / Defender 等）或系统策略："
+    "把本程序加入信任/白名单，或改用源码方式运行。\n"
+    "4) B站：无 Cookie 最高 1080P；4K / 1080P60 需大会员 Cookie。\n"
+    "5) YouTube：国内网络需要代理（海外可直连）；不要导 Cookie —— 登录态会触发 SABR-only，"
+    "只下发图片流导致下载失败，公开视频本来就不需要 Cookie。\n"
+    "6) X 仅支持单条推文；Instagram 需 Cookie，国内网络还需要代理；两者主页批量都不支持。\n"
     "7) 快手支持已移除，粘贴快手链接会提示无法识别。\n"
     "8) 同名文件已存在会自动跳过；下载历史最多保留 200 条。"
 )
@@ -403,16 +408,16 @@ class App:
         name = PLATFORM_NAMES.get(p, p)
         status = ""
         if p == "douyin":
-            status = "（已就绪）" if COOKIE_PATH.exists() else "（当前缺失）"
+            status = "（Cookie 已就绪）" if COOKIE_PATH.exists() else "（Cookie 缺失）"
         elif p == "bili":
             status = ("（大会员 Cookie 已就绪，可选 4K）" if BILI_COOKIE_PATH.exists()
                       else "（无 Cookie，最高 1080P）")
         elif p == "xhs":
-            status = "（已就绪）" if XHS_COOKIE_PATH.exists() else "（当前缺失）"
+            status = "（Cookie 已就绪）" if XHS_COOKIE_PATH.exists() else "（Cookie 缺失）"
         elif p == "twitter":
-            status = "（已就绪）" if TW_COOKIE_PATH.exists() else "（当前缺失，匿名可能被登录墙挡）"
+            status = "（Cookie 已就绪）" if TW_COOKIE_PATH.exists() else "（Cookie 缺失，匿名可能被登录墙挡）"
         elif p == "instagram":
-            status = "（已就绪）" if IG_COOKIE_PATH.exists() else "（当前缺失）"
+            status = "（Cookie 已就绪）" if IG_COOKIE_PATH.exists() else "（Cookie 缺失）"
         elif p == "youtube" and YT_COOKIE_PATH.exists():
             status = "  ⚠️ 检测到 youtube_cookies.txt：登录态只下发图片流，建议移走"
         self.hint_var.set(f"{name}：{PLATFORM_HINTS.get(p, '')}{status}")
@@ -445,6 +450,15 @@ class App:
         if YT_COOKIE_PATH.exists():
             self._post("[!] 检测到 youtube_cookies.txt：YouTube 登录态会只下发图片流（SABR-only），"
                        "下载会报「Requested format is not available」。公开视频请把它移走。")
+        try:
+            import douyin_browser
+            has_browser = douyin_browser.find_browser() is not None
+        except Exception:
+            has_browser = True      # 检测失败时保持沉默，别误导用户
+        if not has_browser:
+            self._post("[!] 未检测到 Chrome / Edge：抖音解析需要其中之一（装好任一个即可）。")
+        if douyin.find_ffmpeg(BASE) is None:
+            self._post("[!] 未找到 ffmpeg：B站 / YouTube 无法合并音视频（源码运行需自备；exe 版已内置）。")
         if not (COOKIE_PATH.exists() and XHS_COOKIE_PATH.exists()):
             self._post("    缺 Cookie 时先装浏览器扩展导出（支持三平台）：")
             self._post("    1. 压缩包内含 extensions\\cookie-export 文件夹")
