@@ -37,7 +37,7 @@
 
 给「不想装 Python」的人：**clone 或下载本仓库后，直接双击 `release\多平台下载器.exe`**，粘贴分享链接即可下载。exe 已内置 Python 运行时、yt-dlp、curl_cffi、ffmpeg，无需任何安装。
 
-> ℹ️ `release\` 里的 exe 是 **v1.6.5**，六平台齐全（抖音 / 小红书 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
+> ℹ️ `release\` 里的 exe 是 **v1.6.6**，六平台齐全（抖音 / 小红书 / B站 / YouTube / X / Instagram）。抖音的「浏览器兜底」解析需本机装有 Chrome / Edge；若报「浏览器启动后立即退出」见下方 FAQ。
 >
 > **近期更新**：首次运行引导（自动检测 Cookie / 浏览器 / ffmpeg / 代理，可一键安装扩展）；B站 4K 优先 H.264、开着系统代理也不再 `HTTP 412`；YouTube 支持 App 分享的 Mix 链接；Cookie 放 exe 旁边或项目根目录都能自动找到。
 >

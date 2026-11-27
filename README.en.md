@@ -37,7 +37,7 @@ Paste a share link and download **watermark-free albums/images, Live Photos (sti
 
 For people who don't want Python: **clone or download this repo, then double-click `release\多平台下载器.exe`**. The exe bundles Python, yt-dlp, curl_cffi and ffmpeg.
 
-> ℹ️ The exe in `release\` is **v1.6.5** and covers all six platforms (Douyin / Xiaohongshu / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
+> ℹ️ The exe in `release\` is **v1.6.6** and covers all six platforms (Douyin / Xiaohongshu / Bilibili / YouTube / X / Instagram). The Douyin "browser fallback" parsing requires Chrome or Edge installed; if you see "browser exited right after launch", see the FAQ below.
 >
 > **Recent changes**: first-run guide (checks cookies / browser / ffmpeg / proxy, one-click extension install); Bilibili 4K now prefers H.264 and no longer fails with `HTTP 412` when a system proxy is on; YouTube accepts App-shared Mix links; cookies are found next to the exe or in the project root.
 >
