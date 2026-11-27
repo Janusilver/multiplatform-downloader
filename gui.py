@@ -149,6 +149,22 @@ def install_extension() -> Path | None:
         return None
 
 
+def open_path(path) -> None:
+    """用系统文件管理器打开目录：Windows 用 startfile，macOS/Linux 用 open/xdg-open。
+
+    gui.py 主要在 Windows 跑，但源码方式也会有人在 Linux/macOS 试，os.startfile 在那边不存在。
+    """
+    try:
+        if os.name == "nt":
+            os.startfile(str(path))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except Exception as e:
+        print(f"[!] 打开目录失败：{e}")
+
+
 NOTES = (
     "1) Cookie 一般几周就会过期：B站掉 4K、小红书跳登录、抖音解析失败时，重新导出一次即可。\n"
     "2) 失败先别连点：抖音 / YouTube 的风控按「停手静置」恢复，连续重试只会延长封禁窗口。\n"
@@ -159,8 +175,7 @@ NOTES = (
     "5) YouTube：国内网络需要代理（海外可直连）；不要导 Cookie —— 登录态会触发 SABR-only，"
     "只下发图片流导致下载失败，公开视频本来就不需要 Cookie。\n"
     "6) X 仅支持单条推文；Instagram 需 Cookie，国内网络还需要代理；两者主页批量都不支持。\n"
-    "7) 快手支持已移除，粘贴快手链接会提示无法识别。\n"
-    "8) 同名文件已存在会自动跳过；下载历史最多保留 200 条。"
+    "7) 同名文件已存在会自动跳过；下载历史最多保留 200 条。"
 )
 OUT_DIR = BASE / "downloads"
 HISTORY_PATH = BASE / "history.json"
@@ -358,7 +373,7 @@ class App:
 
         prow = ttk.Frame(root)
         prow.pack(fill="x", padx=10, pady=(0, 4))
-        tk.Label(prow, text="代理（X/IG 建议填写，留空直连）：").pack(side="left")
+        tk.Label(prow, text="代理（YouTube / X / IG 国内网络需要，留空直连）：").pack(side="left")
         self.proxy_var = tk.StringVar()
         # 自动读 Windows 系统代理（Clash 等已开启「系统代理」时），填进代理框，可手动改/清空
         system_proxy = douyin.detect_system_proxy()
@@ -440,7 +455,7 @@ class App:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         try:
             if os.name == "nt":
-                os.startfile(str(self.out_dir))          # Windows
+                open_path(self.out_dir)
             else:
                 subprocess.Popen(["xdg-open", str(self.out_dir)])   # Linux
         except (AttributeError, OSError):
@@ -523,10 +538,7 @@ class App:
                     "请从仓库下载该项目目录后重试，或手动加载仓库里的扩展文件夹。", parent=win)
                 return
             self._open_extensions_page()
-            try:
-                os.startfile(dst)
-            except Exception:
-                pass
+            open_path(dst)
             messagebox.showinfo(
                 "接下来两步",
                 "1) 浏览器地址栏进 edge://extensions（Chrome 是 chrome://extensions）\n"
@@ -541,7 +553,7 @@ class App:
         ttk.Button(btns, text="安装扩展（复制并打开目录）", command=do_install).pack(side="left")
         ttk.Button(btns, text="重新检测", command=render).pack(side="left", padx=6)
         ttk.Button(btns, text="说明", command=self.show_notes).pack(side="left")
-        ttk.Button(btns, text="打开程序目录", command=lambda: os.startfile(BASE)).pack(side="left", padx=6)
+        ttk.Button(btns, text="打开程序目录", command=lambda: open_path(BASE)).pack(side="left", padx=6)
 
         def close() -> None:
             st = load_state()
@@ -573,8 +585,8 @@ class App:
         text = self.input.get("1.0", "end").strip()
         found = classify_all(text) if text else []
         if not found:
-            self.hint_var.set("支持：抖音 / 小红书 / B站 / YouTube / X / Instagram（快手已移除）。"
-                              "粘贴分享链接后这里会显示对应注意事项。")
+            self.hint_var.set("支持：抖音 / 小红书 / B站 / YouTube / X / Instagram。"
+                              "粘贴分享链接后，这里会显示该平台的注意事项。")
             return
         platforms = []
         for platform, _ in found:

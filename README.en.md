@@ -122,7 +122,7 @@ pip install requests yt-dlp curl_cffi
 
 **ffmpeg (Bilibili/YouTube merging)**: on Windows put `ffmpeg\ffmpeg.exe` in the project (or `pip install imageio-ffmpeg` and extract the exe from the package). Without ffmpeg only Bilibili/YouTube fail. On **Linux**, put an executable named `ffmpeg` (no `.exe`) into `ffmpeg/`, or install it system-wide (`apt install ffmpeg`) — the program picks the right one per platform.
 
-**Tested scope**: Windows = full (YouTube / Instagram real downloads + all scripts); Linux = unit tests, script startup, YouTube download+merge, Instagram multi-media download. **Xiaohongshu/Douyin real downloads and the GUI are untested on Linux**; macOS is untested (no device).
+**Tested scope**: Windows = full (YouTube / Instagram real downloads + all scripts); Linux = unit tests, all five download scripts starting, YouTube download+merge, Instagram multi-media download. **Xiaohongshu/Douyin real downloads and the GUI are untested on Linux**; macOS is untested (no device).
 
 **Chrome / Edge (Douyin needs one)**: the Douyin detail endpoint now requires a browser-made signature and refuses plain HTTP requests. The tool automatically fetches the detail once through your installed Chrome or Edge (headless, throwaway profile — your browser settings are untouched). No extra dependency, just have a browser installed.
 

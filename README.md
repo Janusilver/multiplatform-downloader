@@ -106,7 +106,7 @@ multiplatform-downloader/
 
 ## 🚀 安装（源码运行）
 
-要求：Python 3.10+。**只在 Windows 上做过完整实测**；Linux 命令行可用但只验证了部分功能（见下「平台实测情况」）；macOS 没设备、未测试，不承诺支持。
+要求：Python 3.10+。**GUI 与 .bat 入口只在 Windows 上实测**；Linux / macOS 可跑命令行脚本（`douyin.py` / `xhs.py` / `instagram.py` / `twitter.py` / `youtube.py`），但只验证了部分功能（见下「平台实测情况」）。
 
 ```bash
 # 1. 进入项目目录，创建虚拟环境（Windows）
@@ -123,7 +123,7 @@ pip install requests yt-dlp curl_cffi
 **ffmpeg（B站 / YouTube 合并音视频需要）**：Windows 下把 ffmpeg 解压到项目 `ffmpeg\` 目录，确保里面有 `ffmpeg.exe`（或 `pip install imageio-ffmpeg` 后从包内提取 exe 放进去）。没有 ffmpeg 时 B站 / YouTube 会失败，其他平台不受影响。
 
 - **Linux**：把 ffmpeg 可执行文件放进 `ffmpeg/` 并命名为 `ffmpeg`（不带 `.exe`），或直接 `apt install ffmpeg` 用系统 PATH 里的版本——程序会自动挑当前平台可用的那个。
-- **平台实测情况**：Windows 完整实测（YouTube / Instagram 真实下载 + 全部脚本）；Linux 只实测了「URL 解析单元测试、6 个脚本启动、YouTube 下载+合并、Instagram 多图下载」，**小红书/抖音的真实下载和 GUI 未实测**；macOS **没设备，未测试**。
+- **平台实测情况**：Windows 完整实测（YouTube / Instagram 真实下载 + 全部脚本）；Linux 只实测了「URL 解析单元测试、5 个下载脚本启动、YouTube 下载+合并、Instagram 多图下载」，**小红书/抖音的真实下载和 GUI 未实测**；macOS **没设备，未测试**。
 
 **Chrome / Edge（抖音下载需要）**：抖音详情接口现在要求浏览器现场签名，纯 HTTP 请求会被挡；程序会自动用本机装好的 Chrome 或 Edge 抓一次详情（无头模式、临时配置，不动你的浏览器设置）。装了浏览器即可，无需额外依赖。
 
